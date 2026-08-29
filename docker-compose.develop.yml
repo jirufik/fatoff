@@ -1,0 +1,89 @@
+name: fatoff-develop
+
+# Окружение ветки develop — полностью своё (D-057).
+#
+# Свои контейнеры, свой том, своя сеть, свой порт. Ничего общего с продом: ни
+# процесса базы, ни диска. Неудачная миграция здесь физически не может достать
+# до того, чем пользуются, — а именно это и было куплено дорого в D-043.
+#
+# Порт 4092: 4090 занят продом, 4091 — старый порт фронта, 4190 стоит в списке
+# заблокированных портов спецификации fetch и браузером не открывается.
+
+services:
+  postgresql:
+    image: postgres:17
+    container_name: fatoff-develop-postgresql
+    restart: unless-stopped
+    ports:
+      - "5483:5432"
+    environment:
+      POSTGRES_USER: fatoff
+      POSTGRES_PASSWORD: fatoff
+      POSTGRES_DB: fatoff
+      TZ: UTC
+    volumes:
+      - fatoff-develop-postgresql-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fatoff -d fatoff"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [fatoff-develop-net]
+
+  app:
+    build: .
+    container_name: fatoff-develop-app
+    restart: unless-stopped
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    ports:
+      - "4092:4092"
+    networks: [fatoff-develop-net]
+    environment:
+      NODE_ENV: production
+      PORT: 4092
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # подключение задано числами, а не через ${...}: в `.env` лежат настройки
+      # локальной разработки, и подстановка увела бы контейнер на её базу (D-043)
+      DB_HOST: postgresql
+      DB_PORT: 5432
+      DB_NAME: fatoff
+      DB_USER: fatoff
+      DB_PASSWORD: fatoff
+      DB_AUTO_MIGRATE: true
+      APP_PASSWORD: ${APP_PASSWORD:?задайте APP_PASSWORD в .env}
+      SESSION_SECRET: ${SESSION_SECRET:?задайте SESSION_SECRET в .env}
+      SECRETS_KEY: ${SECRETS_KEY:?задайте SECRETS_KEY в .env — openssl rand -hex 32}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      YAZIO_API_BASE: ${YAZIO_API_BASE:-https://yzapi.yazio.com}
+      YAZIO_API_VERSION: ${YAZIO_API_VERSION:-v9}
+      YAZIO_CONCURRENCY: ${YAZIO_CONCURRENCY:-6}
+      YAZIO_RESYNC_DAYS: ${YAZIO_RESYNC_DAYS:-3}
+      YAZIO_TIMEOUT_MS: ${YAZIO_TIMEOUT_MS:-30000}
+      HEALTH_DIR: /app/health
+      EXPORT_DIR: /app/storage/exports
+      EXPORT_RETENTION_DAYS: ${EXPORT_RETENTION_DAYS:-30}
+      # на develop ночная синхронизация выключена: тянуть YAZIO дважды за ночь
+      # незачем, а расписание прода от этого не зависит
+      SYNC_CRON: ${DEVELOP_SYNC_CRON:-}
+    volumes:
+      - fatoff-develop-exports:/app/storage/exports
+      - ./apple-health:/app/health:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4092/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  fatoff-develop-postgresql-data:
+    name: fatoff-develop-postgresql-data
+  fatoff-develop-exports:
+    name: fatoff-develop-exports
+
+networks:
+  fatoff-develop-net:
+    name: fatoff-develop-net

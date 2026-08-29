@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE HealthData [
+<!-- HealthKit Export Version: 14 -->
+]>
+<HealthData locale="ru_FI">
+ <ExportDate value="2026-08-28 14:16:29 +0300"/>
+ <Me HKCharacteristicTypeIdentifierDateOfBirth="1990-06-04" HKCharacteristicTypeIdentifierBiologicalSex="HKBiologicalSexFemale" HKCharacteristicTypeIdentifierBloodType="HKBloodTypeNotSet"/>
+
+ <!-- шаги считают и часы, и телефон: складывать нельзя -->
+ <Record type="HKQuantityTypeIdentifierStepCount" sourceName="Apple Watch" unit="count" startDate="2024-03-01 08:00:00 +0300" endDate="2024-03-01 08:05:00 +0300" value="600"/>
+ <Record type="HKQuantityTypeIdentifierStepCount" sourceName="Apple Watch" unit="count" startDate="2024-03-01 18:00:00 +0300" endDate="2024-03-01 18:05:00 +0300" value="400"/>
+ <Record type="HKQuantityTypeIdentifierStepCount" sourceName="iPhone" unit="count" startDate="2024-03-01 08:00:00 +0300" endDate="2024-03-01 08:05:00 +0300" value="250"/>
+
+ <!-- мгновенная величина: сумма пульсов бессмысленна, нужны среднее и крайние -->
+ <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Apple Watch" unit="count/min" startDate="2024-03-01 08:00:00 +0300" endDate="2024-03-01 08:00:00 +0300" value="60"/>
+ <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Apple Watch" unit="count/min" startDate="2024-03-01 12:00:00 +0300" endDate="2024-03-01 12:00:00 +0300" value="90"/>
+ <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Apple Watch" unit="count/min" startDate="2024-03-01 20:00:00 +0300" endDate="2024-03-01 20:00:00 +0300" value="120"/>
+
+ <Record type="HKQuantityTypeIdentifierActiveEnergyBurned" sourceName="Apple Watch" unit="kcal" startDate="2024-03-01 09:00:00 +0300" endDate="2024-03-01 10:00:00 +0300" value="150.5"/>
+ <Record type="HKQuantityTypeIdentifierBasalEnergyBurned" sourceName="Apple Watch" unit="kcal" startDate="2024-03-01 09:00:00 +0300" endDate="2024-03-01 10:00:00 +0300" value="1200"/>
+
+ <!-- питание пришло из YAZIO: в Health это не независимый источник -->
+ <Record type="HKQuantityTypeIdentifierDietaryEnergyConsumed" sourceName="Yazio" unit="kcal" startDate="2024-03-01 13:00:00 +0300" endDate="2024-03-01 13:00:00 +0300" value="820"/>
+
+ <!-- категорийная запись: значение — метка, а не число -->
+ <Record type="HKCategoryTypeIdentifierAppleStandHour" sourceName="Apple Watch" startDate="2024-03-01 10:00:00 +0300" endDate="2024-03-01 11:00:00 +0300" value="HKCategoryValueAppleStandHourStood"/>
+ <Record type="HKCategoryTypeIdentifierAppleStandHour" sourceName="Apple Watch" startDate="2024-03-01 11:00:00 +0300" endDate="2024-03-01 12:00:00 +0300" value="HKCategoryValueAppleStandHourStood"/>
+ <Record type="HKCategoryTypeIdentifierAppleStandHour" sourceName="Apple Watch" startDate="2024-03-01 12:00:00 +0300" endDate="2024-03-01 13:00:00 +0300" value="HKCategoryValueAppleStandHourIdle"/>
+
+ <!-- точечный замер: важен каждый, а их мало -->
+ <Record type="HKQuantityTypeIdentifierBodyMass" sourceName="Весы" unit="kg" startDate="2024-03-01 07:30:00 +0300" endDate="2024-03-01 07:30:00 +0300" value="61.4"/>
+ <Record type="HKQuantityTypeIdentifierBodyFatPercentage" sourceName="Весы" unit="%" startDate="2024-03-01 07:30:00 +0300" endDate="2024-03-01 07:30:00 +0300" value="0.244"/>
+
+ <!-- сон через полночь: относится к дате пробуждения -->
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Apple Watch" startDate="2024-03-01 23:00:00 +0300" endDate="2024-03-02 07:00:00 +0300" value="HKCategoryValueSleepAnalysisInBed"/>
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Apple Watch" startDate="2024-03-01 23:20:00 +0300" endDate="2024-03-02 01:20:00 +0300" value="HKCategoryValueSleepAnalysisAsleepCore"/>
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Apple Watch" startDate="2024-03-02 01:20:00 +0300" endDate="2024-03-02 02:50:00 +0300" value="HKCategoryValueSleepAnalysisAsleepDeep"/>
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Apple Watch" startDate="2024-03-02 02:50:00 +0300" endDate="2024-03-02 03:50:00 +0300" value="HKCategoryValueSleepAnalysisAsleepREM"/>
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Apple Watch" startDate="2024-03-02 03:50:00 +0300" endDate="2024-03-02 04:05:00 +0300" value="HKCategoryValueSleepAnalysisAwake"/>
+
+ <!-- запись внутри корреляции продублирована на верхнем уровне: считать надо один раз -->
+ <Record type="HKQuantityTypeIdentifierDietaryProtein" sourceName="Yazio" unit="g" startDate="2024-03-02 13:00:00 +0300" endDate="2024-03-02 13:00:00 +0300" value="30"/>
+ <Correlation type="HKCorrelationTypeIdentifierFood" sourceName="Yazio" startDate="2024-03-02 13:00:00 +0300" endDate="2024-03-02 13:00:00 +0300">
+  <Record type="HKQuantityTypeIdentifierDietaryProtein" sourceName="Yazio" unit="g" startDate="2024-03-02 13:00:00 +0300" endDate="2024-03-02 13:00:00 +0300" value="30"/>
+ </Correlation>
+
+ <Record type="HKQuantityTypeIdentifierStepCount" sourceName="Apple Watch" unit="count" startDate="2024-03-02 09:00:00 +0300" endDate="2024-03-02 09:10:00 +0300" value="1500"/>
+
+ <Workout workoutActivityType="HKWorkoutActivityTypeWalking" duration="45.5" durationUnit="min" sourceName="Apple Watch" startDate="2024-03-02 18:00:00 +0300" endDate="2024-03-02 18:45:30 +0300">
+  <MetadataEntry key="HKIndoorWorkout" value="0"/>
+  <WorkoutStatistics type="HKQuantityTypeIdentifierActiveEnergyBurned" sum="180.25" unit="kcal"/>
+  <WorkoutStatistics type="HKQuantityTypeIdentifierDistanceWalkingRunning" sum="3.4" unit="km"/>
+ </Workout>
+
+ <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="1800" durationUnit="sec" sourceName="Apple Watch" startDate="2024-03-03 07:00:00 +0300" endDate="2024-03-03 07:30:00 +0300">
+  <WorkoutStatistics type="HKQuantityTypeIdentifierActiveEnergyBurned" sum="310" unit="kcal"/>
+  <WorkoutStatistics type="HKQuantityTypeIdentifierDistanceWalkingRunning" sum="5200" unit="m"/>
+ </Workout>
+
+ <ActivitySummary dateComponents="2024-03-01" activeEnergyBurned="612" activeEnergyBurnedGoal="500" activeEnergyBurnedUnit="kcal" appleMoveTime="0" appleMoveTimeGoal="0" appleExerciseTime="41" appleExerciseTimeGoal="30" appleStandHours="11" appleStandHoursGoal="12"/>
+ <ActivitySummary dateComponents="2024-03-02" activeEnergyBurned="430" activeEnergyBurnedGoal="500" activeEnergyBurnedUnit="kcal" appleMoveTime="0" appleMoveTimeGoal="0" appleExerciseTime="22" appleExerciseTimeGoal="30" appleStandHours="9" appleStandHoursGoal="12"/>
+</HealthData>

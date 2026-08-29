@@ -1,0 +1,33 @@
+{
+  "name": "fatoff",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.30.3",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "pnpm run scan:test && turbo run test",
+    "scan": "node scripts/scan-secrets.mjs",
+    "scan:test": "node --test scripts/scan-secrets.test.mjs",
+    "typecheck": "turbo run typecheck",
+    "db:up": "docker compose -f infrastructure/postgresql/docker-compose.yml up -d",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f app",
+    "develop:up": "docker compose -f docker-compose.develop.yml up -d --build",
+    "develop:down": "docker compose -f docker-compose.develop.yml down",
+    "develop:logs": "docker compose -f docker-compose.develop.yml logs -f app",
+    "db:down": "docker compose -f infrastructure/postgresql/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "esbuild"
+    ]
+  }
+}

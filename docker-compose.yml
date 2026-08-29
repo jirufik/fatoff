@@ -1,0 +1,67 @@
+name: fatoff
+
+# База поднимается своим файлом — `pnpm db:up`. Раньше она заводилась ещё и
+# отсюда через `extends`, и получалось два тома: какой окажется под сервисом,
+# зависело от того, чем его запустили в этот раз. Один хозяин на базу — здесь
+# её нет вовсе.
+#
+# Порядок запуска держится на `restart: unless-stopped`: если база ещё не
+# отвечает, приложение перезапустится и дождётся её.
+
+services:
+  app:
+    build: .
+    container_name: fatoff-app
+    restart: unless-stopped
+    ports:
+      - "4090:4090"
+    # та же сеть, что и у базы, — иначе postgresql не резолвится по имени
+    networks: [fatoff-net]
+    environment:
+      NODE_ENV: production
+      PORT: 4090
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # база прода задана здесь, а не через ${...}: в `.env` лежат настройки
+      # разработки, и подстановка увела бы контейнер на базу разработки (D-043)
+      DB_HOST: postgresql
+      DB_PORT: 5432
+      DB_NAME: fatoff
+      DB_USER: fatoff
+      DB_PASSWORD: fatoff
+      DB_AUTO_MIGRATE: true
+      APP_PASSWORD: ${APP_PASSWORD:?задайте APP_PASSWORD в .env}
+      SESSION_SECRET: ${SESSION_SECRET:?задайте SESSION_SECRET в .env}
+      SECRETS_KEY: ${SECRETS_KEY:?задайте SECRETS_KEY в .env — openssl rand -hex 32}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      YAZIO_API_BASE: ${YAZIO_API_BASE:-https://yzapi.yazio.com}
+      YAZIO_API_VERSION: ${YAZIO_API_VERSION:-v9}
+      YAZIO_CONCURRENCY: ${YAZIO_CONCURRENCY:-6}
+      YAZIO_RESYNC_DAYS: ${YAZIO_RESYNC_DAYS:-3}
+      YAZIO_TIMEOUT_MS: ${YAZIO_TIMEOUT_MS:-30000}
+      HEALTH_DIR: /app/health
+      EXPORT_DIR: /app/storage/exports
+      EXPORT_RETENTION_DAYS: ${EXPORT_RETENTION_DAYS:-30}
+      SYNC_CRON: ${SYNC_CRON:-0 3 * * *}
+    volumes:
+      - fatoff-exports:/app/storage/exports
+      # каталог с выгрузками Apple Health — только на чтение: файл в два
+      # гигабайта через браузер не загрузить, сервис берёт его с диска
+      - ./apple-health:/app/health:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4090/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+# имя тома задано явно: иначе compose приписал бы к нему имя проекта
+volumes:
+  fatoff-exports:
+    name: fatoff-exports
+
+# сеть заводит `pnpm db:up` вместе с базой
+networks:
+  fatoff-net:
+    external: true
+    name: fatoff-net

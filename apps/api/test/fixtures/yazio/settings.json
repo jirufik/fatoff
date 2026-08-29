@@ -1,0 +1,13 @@
+{
+ "has_water_tracker": true,
+ "has_diary_tipps": true,
+ "has_meal_reminders": true,
+ "has_usage_reminders": true,
+ "has_weight_reminders": true,
+ "has_water_reminders": true,
+ "consume_activity_calories": true,
+ "has_feelings": true,
+ "has_fasting_tracker_reminders": true,
+ "has_fasting_stage_reminders": true,
+ "weight_reminder_frequency": null
+}
