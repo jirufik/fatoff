@@ -1,18 +1,23 @@
 #!/usr/bin/env node
 /**
- * Проверка ветки перед обычным коммитом.
+ * Проверка ветки перед коммитом.
  *
- * В `main` попадает только слияние `develop` — значит, и прямой коммит туда
- * попасть не должен, иначе правило обходится молча и без злого умысла.
+ * Два разных случая под одним хуком. Обычный коммит в `main` запрещён: раз
+ * туда попадает только слияние `develop`, то и коммит туда попасть не должен,
+ * иначе правило обходится молча и без злого умысла.
  *
- * Коммит слияния этот хук не трогает: у него свой, `pre-merge-commit`.
+ * Второй случай — слияние с конфликтами. При нём `pre-merge-commit` не
+ * зовётся вовсе, а завершающий `git commit` идёт сюда. Отказать ему как
+ * «прямому коммиту в main» было бы неверно: это законное слияние develop.
+ * Поэтому при незавершённом слиянии проверяется правило слияния.
  */
-import { execFileSync } from 'node:child_process';
+import { commitRefusal, mergeRefusal } from './branch-rules.mjs';
+import { currentBranch, mergeInProgress, mergeSource } from './merge-source.mjs';
 
-import { commitRefusal } from './branch-rules.mjs';
-
-const branch = execFileSync('git', ['symbolic-ref', '--short', 'HEAD']).toString().trim();
-const refusal = commitRefusal(branch);
+const branch = currentBranch();
+const refusal = mergeInProgress()
+  ? mergeRefusal(branch, mergeSource())
+  : commitRefusal(branch);
 
 if (refusal) {
   console.error(`\nКоммит остановлен.\n\n${refusal}`);
