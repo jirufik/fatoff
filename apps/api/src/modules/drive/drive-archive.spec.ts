@@ -38,6 +38,63 @@ const zipOf = async (entries: Array<[string, string]>, name: string): Promise<st
   return path;
 };
 
+/**
+ * Архив с именем в UTF-8, но **без флага UTF-8** — так пишет iOS.
+ *
+ * Ни `archiver`, ни `zipfile` такой архив не соберут: они честно ставят бит 11
+ * для не-ASCII имени. Поэтому запись складывается вручную — заголовок,
+ * несжатые данные, центральный каталог. Ровно на этом архиве выгрузка и
+ * отклонялась как «архив без выгрузки».
+ */
+function zipWithoutUtf8Flag(entry: string, content: string): Buffer {
+  const name = Buffer.from(entry, 'utf8');
+  const data = Buffer.from(content, 'utf8');
+  const crc = crc32(data);
+
+  const local = Buffer.alloc(30);
+  local.writeUInt32LE(0x04034b50, 0);
+  local.writeUInt16LE(20, 4); // версия
+  local.writeUInt16LE(0, 6); // флаги: бит UTF-8 намеренно не выставлен
+  local.writeUInt16LE(0, 8); // без сжатия
+  local.writeUInt32LE(crc, 14);
+  local.writeUInt32LE(data.length, 18);
+  local.writeUInt32LE(data.length, 22);
+  local.writeUInt16LE(name.length, 26);
+
+  const central = Buffer.alloc(46);
+  central.writeUInt32LE(0x02014b50, 0);
+  central.writeUInt16LE(20, 4);
+  central.writeUInt16LE(20, 6);
+  central.writeUInt16LE(0, 8); // и здесь тоже нет
+  central.writeUInt16LE(0, 10);
+  central.writeUInt32LE(crc, 16);
+  central.writeUInt32LE(data.length, 20);
+  central.writeUInt32LE(data.length, 24);
+  central.writeUInt16LE(name.length, 28);
+
+  const localSize = local.length + name.length + data.length;
+  const centralSize = central.length + name.length;
+
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(1, 8);
+  end.writeUInt16LE(1, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(localSize, 16);
+
+  return Buffer.concat([local, name, data, central, name, end]);
+}
+
+/** Таблица CRC-32 нужна только этому вспомогательному сборщику архива. */
+function crc32(buffer: Buffer): number {
+  let crc = ~0;
+  for (const byte of buffer) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return ~crc >>> 0;
+}
+
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), 'fatoff-drive-'));
 });
@@ -89,6 +146,23 @@ describe('опознание выгрузки Apple Health', () => {
     await expect(recognizeExport(fake, join(dir, 'out2.xml'))).rejects.toMatchObject({
       code: 'drive.not-health-xml',
     });
+  });
+
+  it('читает кириллическое имя, даже когда в архиве не выставлен флаг UTF-8', async () => {
+    // iOS кладёт «экспорт.xml» в UTF-8, но флаг не ставит. По стандарту это
+    // значит CP437, и имя читается как «╤ì╨║╤ü╨┐╨╛╤Ç╤é.xml» — выгрузка
+    // отклонялась как «архив без выгрузки»
+    const path = join(dir, 'ios-стиль.zip');
+    await writeFile(path, zipWithoutUtf8Flag('apple_health_export/экспорт.xml', HEALTH_XML));
+
+    const out = join(dir, 'ios-стиль.xml');
+    const result = await recognizeExport(path, out);
+
+    expect({ from: result.from, entry: result.entryName }).toEqual({
+      from: 'zip',
+      entry: 'apple_health_export/экспорт.xml',
+    });
+    expect(await readFile(out, 'utf8')).toContain('<HealthData');
   });
 
   it('узнаёт архив по содержимому, а не по расширению', async () => {

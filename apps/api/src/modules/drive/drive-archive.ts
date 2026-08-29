@@ -51,11 +51,29 @@ async function looksLikeHealthXml(path: string): Promise<boolean> {
 
 const openZip = (path: string): Promise<yauzl.ZipFile> =>
   new Promise((resolve, reject) => {
-    yauzl.open(path, { lazyEntries: true, autoClose: false }, (error, zip) => {
+    /*
+     * `decodeStrings: false` — имена приходят байтами, а не строкой.
+     *
+     * iOS кладёт `экспорт.xml` в UTF-8, но не ставит в записи флаг UTF-8 (бит 11
+     * общего назначения). По стандарту это значит CP437, и любой честный
+     * читатель — включая yauzl — получает `╤ì╨║╤ü╨┐╨╛╤Ç╤é.xml`. Выгрузка при этом
+     * отклонялась как «архив без выгрузки».
+     *
+     * Разбирать имя самим безопасно: оно нужно только для сравнения с известным
+     * списком и для журнала, а путь распаковки задаётся снаружи и из имени
+     * внутри архива не строится.
+     */
+    yauzl.open(path, { lazyEntries: true, autoClose: false, decodeStrings: false }, (error, zip) => {
       if (error || !zip) reject(error ?? new Error('Архив не открылся'));
       else resolve(zip);
     });
   });
+
+/** Имя записи: байты в UTF-8, каким его на самом деле и записали. */
+function entryName(entry: yauzl.Entry): string {
+  const raw = entry.fileName as unknown as Buffer | string;
+  return Buffer.isBuffer(raw) ? raw.toString('utf8') : raw;
+}
 
 /**
  * Достать из архива основной XML выгрузки.
@@ -77,7 +95,8 @@ async function extractExport(zipPath: string, destination: string): Promise<Reco
     };
 
     zip.on('entry', (entry: yauzl.Entry) => {
-      const name = basename(entry.fileName);
+      const full = entryName(entry);
+      const name = basename(full);
       const wanted = EXPORT_NAMES.includes(name) && !SKIP_NAMES.includes(name);
       if (!wanted) {
         zip.readEntry();
@@ -91,7 +110,7 @@ async function extractExport(zipPath: string, destination: string): Promise<Reco
           return;
         }
         pipeline(stream, createWriteStream(destination))
-          .then(() => finish(null, { xmlPath: destination, from: 'zip', entryName: entry.fileName }))
+          .then(() => finish(null, { xmlPath: destination, from: 'zip', entryName: full }))
           .catch((cause: Error) => finish(cause));
       });
     });
