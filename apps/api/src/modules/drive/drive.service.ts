@@ -10,6 +10,7 @@ import { Account, DriveFetch } from '../../database/entities';
 import { AppleHealthService } from '../apple-health/apple-health.service';
 
 import { NotAnExport, recognizeExport } from './drive-archive';
+import { resolveDriveAuth } from './drive-auth';
 import { DriveClient, DriveError, FOLDER_MIME, type DriveFile } from './drive-client';
 import { DriveFailure } from './drive-failure';
 import { parseDriveLink } from './drive-link';
@@ -36,19 +37,29 @@ export class DriveService {
     return resolve(process.cwd(), this.cfg.get('EXPORT_DIR'), '..', 'health');
   }
 
-  private client(): DriveClient | null {
-    const key = this.cfg.get('GOOGLE_API_KEY').trim();
-    if (!key) return null;
-    return new DriveClient(key, this.cfg.get('DRIVE_API_BASE'));
+  /** Чем открывать папку: сервисный аккаунт предпочтительнее ключа. */
+  private auth(): ReturnType<typeof resolveDriveAuth> {
+    const file = this.cfg.get('GOOGLE_SERVICE_ACCOUNT_FILE').trim();
+    return resolveDriveAuth(
+      file ? resolve(process.cwd(), file) : '',
+      this.cfg.get('GOOGLE_API_KEY'),
+    );
+  }
+
+  private async client(): Promise<DriveClient | null> {
+    const auth = await this.auth();
+    return auth ? new DriveClient(auth, this.cfg.get('DRIVE_API_BASE')) : null;
   }
 
   async settings(accountId: string): Promise<DriveSettingsDto> {
     const account = await this.account(accountId);
+    const auth = await this.auth();
     return {
       url: account.driveUrl,
       dailyAt: account.driveDailyAt,
       enabled: account.driveEnabled,
-      keyConfigured: this.cfg.get('GOOGLE_API_KEY').trim().length > 0,
+      keyConfigured: auth !== null,
+      access: auth?.kind ?? null,
     };
   }
 
@@ -128,7 +139,7 @@ export class DriveService {
   }
 
   private async run(em: EntityManager, account: Account, record: DriveFetch): Promise<void> {
-    const client = this.client();
+    const client = await this.client();
     if (!client) throw new DriveFailure('drive.no-key');
 
     const link = account.driveUrl && parseDriveLink(account.driveUrl);

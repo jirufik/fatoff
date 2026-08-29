@@ -39,6 +39,8 @@ services:
       YAZIO_CONCURRENCY: ${YAZIO_CONCURRENCY:-6}
       YAZIO_RESYNC_DAYS: ${YAZIO_RESYNC_DAYS:-3}
       YAZIO_TIMEOUT_MS: ${YAZIO_TIMEOUT_MS:-30000}
+      GOOGLE_SERVICE_ACCOUNT_FILE: ${GOOGLE_SERVICE_ACCOUNT_FILE:-secrets/service-account.json}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       HEALTH_DIR: /app/health
       EXPORT_DIR: /app/storage/exports
       EXPORT_RETENTION_DAYS: ${EXPORT_RETENTION_DAYS:-30}
@@ -48,6 +50,8 @@ services:
       # каталог с выгрузками Apple Health — только на чтение: файл в два
       # гигабайта через браузер не загрузить, сервис берёт его с диска
       - ./apple-health:/app/health:ro
+      # ключ сервисного аккаунта Google — только на чтение, как и всё чужое
+      - ./secrets:/app/secrets:ro
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4090/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s

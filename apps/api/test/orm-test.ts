@@ -81,6 +81,10 @@ export function testConfig(overrides: Record<string, unknown> = {}) {
     YAZIO_TIMEOUT_MS: 5_000,
     EXPORT_DIR: '',
     EXPORT_RETENTION_DAYS: 30,
+    // способы доступа к Drive: по умолчанию нет ни одного, тест задаёт нужный
+    GOOGLE_API_KEY: '',
+    GOOGLE_SERVICE_ACCOUNT_FILE: '',
+    DRIVE_API_BASE: 'https://www.googleapis.com/drive/v3',
     ...overrides,
   };
   return {

@@ -45,7 +45,10 @@ class FakeDrive {
       this.requests += 1;
       const url = new URL(request.url ?? '/', 'http://localhost');
 
-      if (!url.searchParams.get('key')) {
+      // как настоящий: пускает и по ключу в строке, и по токену в заголовке
+      const authorized =
+        Boolean(url.searchParams.get('key')) || Boolean(request.headers.authorization);
+      if (!authorized) {
         response.writeHead(403, { 'content-type': 'application/json' });
         response.end(JSON.stringify({ error: { message: 'нет ключа' } }));
         return;
@@ -277,11 +280,19 @@ describe('загрузка выгрузки из Google Drive', () => {
   });
 
   it('без ключа честно говорит, что не настроен', async () => {
-    const cfg = testConfig({ HEALTH_DIR: FIXTURES, EXPORT_DIR: join(dir, 'exports'), GOOGLE_API_KEY: '' });
+    const cfg = testConfig({
+      HEALTH_DIR: FIXTURES,
+      EXPORT_DIR: join(dir, 'exports'),
+      GOOGLE_API_KEY: '',
+      GOOGLE_SERVICE_ACCOUNT_FILE: '',
+    });
     const without = new DriveService(em, cfg as unknown as AppConfigService, health);
 
     const settings = await without.settings(account.id);
-    expect(settings.keyConfigured).toBe(false);
+    expect({ configured: settings.keyConfigured, access: settings.access }).toEqual({
+      configured: false,
+      access: null,
+    });
 
     const result = await without.check(account.id, 'manual');
     expect({ status: result.status, code: result.error?.code }).toEqual({
@@ -302,6 +313,14 @@ describe('загрузка выгрузки из Google Drive', () => {
       enabled: true,
     });
     expect({ at: saved.dailyAt, on: saved.enabled }).toEqual({ at: '06:30', on: true });
+  });
+
+  it('говорит, чем именно открывает папку', async () => {
+    const settings = await drive.settings(account.id);
+    expect({ configured: settings.keyConfigured, access: settings.access }).toEqual({
+      configured: true,
+      access: 'api-key',
+    });
   });
 
   it('журнал помнит и то, что делать ничего не пришлось', async () => {

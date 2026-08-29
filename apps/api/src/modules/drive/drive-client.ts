@@ -2,6 +2,8 @@ import { createWriteStream } from 'node:fs';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
+import type { DriveAuth } from './drive-auth';
+
 /**
  * Тонкий клиент Google Drive API v3 — ровно на три операции.
  *
@@ -47,16 +49,18 @@ export class DriveClient {
    * проверяют решения сервиса, а не доступность Google.
    */
   constructor(
-    private readonly apiKey: string,
+    private readonly auth: DriveAuth,
     private readonly base: string = API,
   ) {}
 
   private async request(path: string, params: Record<string, string>): Promise<Response> {
     const url = new URL(`${this.base}${path}`);
     for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-    url.searchParams.set('key', this.apiKey);
+    for (const [key, value] of Object.entries(this.auth.params())) url.searchParams.set(key, value);
 
-    const response = await fetch(url, { headers: { accept: 'application/json' } });
+    const response = await fetch(url, {
+      headers: { accept: 'application/json', ...(await this.auth.headers()) },
+    });
     if (response.ok) return response;
 
     // ответ Drive объясняет причину лучше кода состояния, но не всегда приходит

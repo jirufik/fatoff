@@ -24,6 +24,13 @@ export interface DriveSettingsDto {
    * сказать об этом до того, как человек нажмёт «Загрузить».
    */
   keyConfigured: boolean;
+  /**
+   * Чем именно сервис открывает папку.
+   *
+   * Различие видно человеку не из любопытства: с сервисным аккаунтом папку
+   * можно не держать публичной, а открыть ему одному.
+   */
+  access: 'service-account' | 'api-key' | null;
 }
 
 export interface DriveFetchDto {
