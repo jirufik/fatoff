@@ -9,6 +9,7 @@
 - **Питание и тренировки: что говорят источники и её данные** — [docs/ANALYSIS-NUTRITION.md](docs/ANALYSIS-NUTRITION.md)
 - **День целиком и генератор режима** — [docs/PLANNER-ARCHITECTURE.md](docs/PLANNER-ARCHITECTURE.md), [docs/PLANNER-PLAN.md](docs/PLANNER-PLAN.md)
 - **Ветки, окружения и правила репозитория** — [docs/GIT.md](docs/GIT.md)
+- **Публичный вход снаружи** — [docs/PUBLIC-ACCESS.md](docs/PUBLIC-ACCESS.md)
 - **Выгрузка Apple Health из Google Drive** — [docs/DRIVE-IMPORT.md](docs/DRIVE-IMPORT.md)
 - **Журнал решений** — [docs/DECISIONS.md](docs/DECISIONS.md)
 - **Разобранное API YAZIO** — [docs/YAZIO-API.md](docs/YAZIO-API.md)
