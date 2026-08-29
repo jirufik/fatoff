@@ -502,7 +502,14 @@ for (const [name, path] of [
    */
   const inner = await page.evaluate(() =>
     [...document.querySelectorAll('body *')]
-      .filter((el) => el.scrollWidth > el.clientWidth + 1 && !el.closest('.table-wrap'))
+      .filter((el) => {
+        if (el.scrollWidth <= el.clientWidth + 1) return false;
+        if (el.closest('.table-wrap')) return false;
+        // `hidden` обрезает, а не прокручивает: строка с многоточием шире своей
+        // рамки по устройству, но утянуть её пальцем нельзя
+        const overflowX = getComputedStyle(el).overflowX;
+        return overflowX === 'auto' || overflowX === 'scroll';
+      })
       .map((el) => `${el.tagName}.${String(el.className).slice(0, 30)} ${el.clientWidth}→${el.scrollWidth}`)
       .slice(0, 4),
   );
