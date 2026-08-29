@@ -210,6 +210,21 @@ async function cancelSync(): Promise<void> {
  * Метка, автосинхронизация и вход. Пароль и токен проверяются до записи, поэтому
  * сохранить неработающий доступ нельзя.
  */
+/** Расписание сохраняется сразу — как и настройки Drive рядом. */
+async function saveSchedule(): Promise<void> {
+  if (!account.value) return
+  try {
+    account.value = await api.patch<AccountDto>(`/accounts/${id}`, {
+      syncEnabled: account.value.syncEnabled,
+      syncDailyAt: syncDailyAt.value.trim() || null,
+    })
+    syncDailyAt.value = account.value.syncDailyAt ?? ''
+    notice.value = t('common.saved')
+  } catch (caught) {
+    error.value = errorMessage(caught)
+  }
+}
+
 async function saveAccount(): Promise<void> {
   savingAccess.value = true
   error.value = ''
@@ -270,6 +285,28 @@ const runChip = (status: string): string =>
     <PageHead :title="t('nav.sync')" :back="`/accounts/${id}`">{{ t('sync.lede') }}</PageHead>
 
     <div v-if="error" class="alert alert--bad">{{ error }}</div>
+
+    <h2><AppIcon name="swap" :size="16" /> {{ t('sync.yazio') }}</h2>
+
+    <div class="card">
+      <div class="row row--wrap" style="align-items: flex-end; gap: 0.75rem">
+        <label class="field" style="margin: 0; width: 12rem">
+          <span>{{ t('sync.daily') }}</span>
+          <input
+            v-model="syncDailyAt"
+            type="text"
+            maxlength="5"
+            placeholder="06:30"
+            @change="saveSchedule"
+          />
+        </label>
+        <label class="check" style="margin-bottom: 0.4rem">
+          <input v-model="account.syncEnabled" type="checkbox" @change="saveSchedule" />
+          {{ t('sync.account.auto') }}
+        </label>
+      </div>
+      <p class="tiny muted" style="margin: 0.5rem 0 0">{{ t('sync.daily.note') }}</p>
+    </div>
     <div v-if="notice" class="alert alert--ok">{{ notice }}</div>
 
     <!-- ── синхронизация ─────────────────────────────────────────────────── -->
@@ -328,7 +365,9 @@ const runChip = (status: string): string =>
     </div>
 
     <!-- ── история запусков ──────────────────────────────────────────────── -->
-    <h2>{{ t('sync.history') }}</h2>
+    
+    <!-- ── YAZIO: история запусков и замечания ──────────────────────────── -->
+    <h2 class="sub">{{ t('sync.history') }}</h2>
     <div v-if="runs.length === 0" class="card muted">{{ t('sync.history.empty') }}</div>
     <div v-else class="card">
       <div class="table-wrap">
@@ -360,7 +399,7 @@ const runChip = (status: string): string =>
     </div>
 
     <template v-if="lastRun && lastRun.warnings.length > 0">
-      <h2>{{ t('sync.warnings') }}</h2>
+      <h2 class="sub">{{ t('sync.warnings') }}</h2>
       <div class="card">
         <div class="table-wrap">
         <table class="data">
@@ -385,79 +424,12 @@ const runChip = (status: string): string =>
       </div>
     </template>
 
-    <h2>{{ t('sync.health') }}</h2>
-    <div class="card">
-      <template v-if="activeHealth">
-        <div class="row row--between" style="margin-bottom: 0.4rem">
-          <span>{{ activeHealth.phase || t('sync.health.progress') }}</span>
-          <span class="mono tiny">
-            {{ healthPercent }} % · {{ t('sync.health.records') }}
-            {{ activeHealth.records.toLocaleString('ru-RU') }}
-          </span>
-        </div>
-        <div class="progress"><div class="progress__fill" :style="{ width: `${healthPercent}%` }" /></div>
-      </template>
+    
+    <!-- ── Apple Health: два источника одного и того же файла ───────────── -->
+    <h2><AppIcon name="steps" :size="16" /> {{ t('health') }}</h2>
+    <p class="lede lede--tight">{{ t('health.lede') }}</p>
 
-      <template v-else>
-        <p v-if="healthFiles.length === 0" class="muted" style="margin-top: 0">
-          {{ t('sync.health.none') }}
-        </p>
-
-        <div v-else class="row row--wrap" style="align-items: flex-end; gap: 0.75rem">
-          <label class="field" style="margin: 0; flex: 1; min-width: 16rem">
-            <span>{{ t('sync.health.file') }}</span>
-            <select v-model="healthFile" class="file-name">
-              <option v-for="file in healthFiles" :key="file.path" :value="file.path">
-                {{
-                  t('sync.health.fileSize', {
-                    path: file.path,
-                    size: Math.round(file.sizeBytes / 1024 / 1024),
-                  })
-                }}
-              </option>
-            </select>
-          </label>
-          <button class="btn btn--primary" :disabled="startingHealth || !healthFile" @click="startHealthImport">
-            <span v-if="startingHealth" class="spinner" />
-            {{ t('sync.health.start') }}
-          </button>
-        </div>
-        <p class="tiny" style="margin: 0.4rem 0 0">
-          {{ t('sync.health.replaceNote') }} {{ t('sync.health.speedNote') }}
-        </p>
-      </template>
-
-      <div v-if="healthImports.length > 0" class="table-wrap" style="margin-top: 0.75rem">
-        <table class="data">
-          <thead>
-            <tr>
-              <th>{{ t('sync.health.loaded') }}</th>
-              <th>{{ t('common.period') }}</th>
-              <th>{{ t('sync.col.status') }}</th>
-              <th class="num">{{ t('sync.health.count') }}</th>
-              <th class="num">{{ t('sync.col.days') }}</th>
-              <th class="num">{{ t('sync.col.trainings') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in healthImports" :key="item.id">
-              <td class="mono">{{ when(item.finishedAt || item.createdAt) }}</td>
-              <td class="mono">{{ item.from || '—' }} — {{ item.to || '—' }}</td>
-              <td><span class="chip" :class="`chip--${runChip(item.status)}`">{{ item.status }}</span></td>
-              <td class="num mono">{{ item.records.toLocaleString('ru-RU') }}</td>
-              <td class="num mono">{{ item.days }}</td>
-              <td class="num mono">{{ item.workouts }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p v-if="healthImports[0]?.error" class="alert alert--bad" style="margin: 0.75rem 0 0">
-        {{ healthImports[0].error }}
-      </p>
-    </div>
-
-    <!-- ── выгрузка из Google Drive ────────────────────────────────────── -->
-    <h2>{{ t('drive') }}</h2>
+    <h3 class="source">{{ t('health.fromDrive') }}</h3>
     <div v-if="drive" class="card">
       <p class="tiny muted" style="margin-top: 0">{{ t('drive.lede') }}</p>
 
@@ -529,24 +501,86 @@ const runChip = (status: string): string =>
       </p>
     </div>
 
-    <h2>{{ t('sync.account') }}</h2>
+    
+    <h3 class="source">{{ t('health.fromDisk') }}</h3>
+    <div class="card">
+      <template v-if="activeHealth">
+        <div class="row row--between" style="margin-bottom: 0.4rem">
+          <span>{{ activeHealth.phase || t('sync.health.progress') }}</span>
+          <span class="mono tiny">
+            {{ healthPercent }} % · {{ t('sync.health.records') }}
+            {{ activeHealth.records.toLocaleString('ru-RU') }}
+          </span>
+        </div>
+        <div class="progress"><div class="progress__fill" :style="{ width: `${healthPercent}%` }" /></div>
+      </template>
+
+      <template v-else>
+        <p v-if="healthFiles.length === 0" class="muted" style="margin-top: 0">
+          {{ t('sync.health.none') }}
+        </p>
+
+        <div v-else class="row row--wrap" style="align-items: flex-end; gap: 0.75rem">
+          <label class="field" style="margin: 0; flex: 1; min-width: 16rem">
+            <span>{{ t('sync.health.file') }}</span>
+            <select v-model="healthFile" class="file-name">
+              <option v-for="file in healthFiles" :key="file.path" :value="file.path">
+                {{
+                  t('sync.health.fileSize', {
+                    path: file.path,
+                    size: Math.round(file.sizeBytes / 1024 / 1024),
+                  })
+                }}
+              </option>
+            </select>
+          </label>
+          <button class="btn btn--primary" :disabled="startingHealth || !healthFile" @click="startHealthImport">
+            <span v-if="startingHealth" class="spinner" />
+            {{ t('sync.health.start') }}
+          </button>
+        </div>
+        <p class="tiny" style="margin: 0.4rem 0 0">
+          {{ t('sync.health.replaceNote') }} {{ t('sync.health.speedNote') }}
+        </p>
+      </template>
+
+      <div v-if="healthImports.length > 0" class="table-wrap" style="margin-top: 0.75rem">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>{{ t('sync.health.loaded') }}</th>
+              <th>{{ t('common.period') }}</th>
+              <th>{{ t('sync.col.status') }}</th>
+              <th class="num">{{ t('sync.health.count') }}</th>
+              <th class="num">{{ t('sync.col.days') }}</th>
+              <th class="num">{{ t('sync.col.trainings') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in healthImports" :key="item.id">
+              <td class="mono">{{ when(item.finishedAt || item.createdAt) }}</td>
+              <td class="mono">{{ item.from || '—' }} — {{ item.to || '—' }}</td>
+              <td><span class="chip" :class="`chip--${runChip(item.status)}`">{{ item.status }}</span></td>
+              <td class="num mono">{{ item.records.toLocaleString('ru-RU') }}</td>
+              <td class="num mono">{{ item.days }}</td>
+              <td class="num mono">{{ item.workouts }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-if="healthImports[0]?.error" class="alert alert--bad" style="margin: 0.75rem 0 0">
+        {{ healthImports[0].error }}
+      </p>
+    </div>
+
+    <!-- ── выгрузка из Google Drive ────────────────────────────────────── -->
+    <h2><AppIcon name="pin" :size="16" /> {{ t('sync.account') }}</h2>
     <div class="card">
       <label class="field" style="margin: 0 0 0.6rem">
         <span>{{ t('sync.account.label') }}</span>
         <input v-model="newLabel" type="text" maxlength="64" :placeholder="account.email" />
       </label>
 
-      <div class="row row--wrap" style="align-items: flex-end; gap: 0.75rem; margin-bottom: 0.4rem">
-        <label class="field" style="margin: 0; width: 12rem">
-          <span>{{ t('sync.daily') }}</span>
-          <input v-model="syncDailyAt" type="text" maxlength="5" placeholder="06:30" />
-        </label>
-        <label class="check" style="margin-bottom: 0.4rem">
-          <input v-model="account.syncEnabled" type="checkbox" />
-          {{ t('sync.account.auto') }}
-        </label>
-      </div>
-      <p class="tiny muted" style="margin: 0 0 0.8rem">{{ t('sync.daily.note') }}</p>
 
       <div class="row row--wrap" style="margin-bottom: 0.6rem">
         <span class="chip" :class="account.authMethod === 'password' ? 'chip--info' : 'chip--mute'">
@@ -593,7 +627,7 @@ const runChip = (status: string): string =>
       </button>
     </div>
 
-    <h2>{{ t('sync.danger') }}</h2>
+    <h2><AppIcon name="trash" :size="16" /> {{ t('sync.danger') }}</h2>
     <div class="card row row--between">
       <span class="muted">{{ t('sync.danger.note') }}</span>
       <button class="btn btn--danger btn--small" @click="removeAccount">{{ t('sync.account.delete') }}</button>
