@@ -33,6 +33,7 @@ describe('словари', () => {
       'plans.pdf',
       'journal.legend.mid',
       'drive',
+      'health',
       'drive.url.hint',
     ]);
     const copied = Object.keys(RU).filter(
