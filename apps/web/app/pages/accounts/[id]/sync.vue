@@ -458,6 +458,9 @@ const runChip = (status: string): string =>
       <p class="tiny muted" style="margin-top: 0">{{ t('drive.lede') }}</p>
 
       <div v-if="!drive.keyConfigured" class="alert alert--warn">{{ t('drive.noKey') }}</div>
+      <p v-else class="tiny muted" style="margin: 0 0 0.6rem">
+        {{ t(`drive.access.${drive.access}`) }}
+      </p>
 
       <label class="field" style="margin: 0 0 0.6rem">
         <span>{{ t('drive.url') }}</span>
