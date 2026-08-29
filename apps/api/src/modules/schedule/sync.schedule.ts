@@ -1,3 +1,4 @@
+import { RequestContext } from '@mikro-orm/core';
 import { EntityManager } from '@mikro-orm/postgresql';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -35,8 +36,20 @@ export class SyncSchedule {
     await this.runDue(new Date());
   }
 
-  /** Чьё время настало. Публичный, чтобы тест мог назвать минуту сам. */
+  /**
+   * Чьё время настало. Публичный, чтобы тест мог назвать минуту сам.
+   *
+   * Всё тело идёт внутри `RequestContext`. Вне запроса его нет, и `SyncService`,
+   * работающий через внедрённый `EntityManager`, падает с «Using global
+   * EntityManager instance methods for context specific actions is disallowed».
+   * Своего форка здесь мало: он помогает этой задаче и не помогает тому, кого
+   * она зовёт.
+   */
   async runDue(now: Date): Promise<string[]> {
+    return RequestContext.create(this.em, () => this.due(now));
+  }
+
+  private async due(now: Date): Promise<string[]> {
     const em = this.em.fork();
     const accounts = await em.find(Account, {
       syncEnabled: true,
