@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#
+# Что во что можно сливать: в main — только develop.
+#
+# Хук срабатывает до создания коммита слияния. Ускоренное слияние коммита не
+# создаёт, поэтому в репозитории выключен `merge.ff` — иначе правило можно было
+# бы обойти, не заметив этого.
+set -euo pipefail
+
+node scripts/guard-merge.mjs
+node scripts/scan-secrets.mjs --staged

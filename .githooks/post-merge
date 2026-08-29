@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#
+# После слияния контур пересобирается и перезапускается.
+#
+# main → прод на 4090, develop → окружение проверки на 4092, фича-ветки — ничего.
+# Пропустить: FATOFF_NO_REDEPLOY=1 git merge …
+set -euo pipefail
+
+node scripts/redeploy.mjs
