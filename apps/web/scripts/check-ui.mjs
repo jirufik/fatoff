@@ -566,44 +566,45 @@ if ((await dailyField.count()) === 0) problems.push('нет поля време�
  * Проверка держит порядок: сперва YAZIO целиком, потом Apple Health с двумя
  * источниками, потом аккаунт.
  */
-const sections = await page.locator('h2, h3.source').allInnerTexts();
-const expected = [
-  'YAZIO — дневник питания',
-  'Запуски',
-  'Apple Health',
-  'Из папки Google Drive — сам',
-  'С диска — вручную',
-  'Настройки аккаунта',
-  'Опасная зона',
-];
-const trimmed = sections.map((line) => line.trim());
-if (JSON.stringify(trimmed) !== JSON.stringify(expected)) {
-  problems.push(`разделы синхронизации: ${trimmed.join(' | ')}`);
+/*
+ * Три раздела и ничего больше: YAZIO, Apple Health, Удаление.
+ *
+ * Разделы прирастали по одному, пока их не стало семь, и предмет размазался
+ * (D-065). Проверка держит и состав, и то, что подробности спрятаны.
+ */
+const sections = (await page.locator('section.card > h2').allInnerTexts()).map((s) => s.trim());
+const wanted = ['YAZIO — дневник питания', 'Apple Health', 'Удаление'];
+if (JSON.stringify(sections) !== JSON.stringify(wanted)) {
+  problems.push(`разделы синхронизации: ${sections.join(' | ')}`);
 }
-await dailyField.fill('07:15');
-// расписание сохраняется сразу, отдельной кнопки у него нет
-await dailyField.press('Tab');
-await page.waitForTimeout(1200);
-await page.reload();
-await page.waitForSelector('.card', { timeout: 10_000 });
-await page.waitForTimeout(900);
-const savedDaily = await page.locator('input[placeholder="06:30"]').first().inputValue();
-console.log('время синхронизации после перезагрузки:', savedDaily);
-if (savedDaily !== '07:15') problems.push(`время синхронизации не сохранилось: «${savedDaily}»`);
 
-// карточка Drive на месте, а отказ без ключа объясним
-if ((await page.locator('h3.source:has-text("Google Drive")').count()) === 0) {
-  problems.push('на синхронизации нет источника Google Drive');
+// сводка сверху отвечает на главный вопрос: свежие ли данные
+const summary = (await page.locator('.sum__when').allInnerTexts()).join(' / ');
+console.log('сводка:', summary.replace(/\s+/g, ' '));
+if (/ещё ни разу/.test(summary)) problems.push(`сводка не нашла прогонов: ${summary}`);
+
+// подробности спрятаны, но раскрываются
+if ((await page.locator('.more__body:visible').count()) !== 0) {
+  problems.push('подробности видны сразу, а должны быть под раскрытием');
 }
-const driveUrl = page.locator('input[type=url]');
-await driveUrl.fill('https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUv');
-await driveUrl.press('Tab');
-await page.waitForTimeout(700);
-await page.locator('button:has-text("Загрузить из Drive")').click();
-await page.waitForTimeout(2000);
-if ((await page.locator('.data tbody tr').count()) === 0) {
-  problems.push('проверка Drive не попала в журнал');
+await page.locator('.more > summary').first().click();
+await page.waitForTimeout(400);
+if ((await page.locator('.more__body:visible').count()) === 0) {
+  problems.push('раскрытие не открывается');
 }
+
+// удаление — со словом, а не с кнопкой «да»
+await page.locator('button:has-text("Удалить аккаунт")').click();
+await page.waitForTimeout(400);
+const kill = page.locator('.modal button:has-text("Удалить навсегда")');
+if ((await page.locator('.modal').count()) === 0) problems.push('окно удаления не открылось');
+if (!(await kill.isDisabled())) problems.push('удаление доступно без подтверждения словом');
+await page.locator('.modal input').fill('Удалить');
+await page.waitForTimeout(250);
+if (await kill.isDisabled()) problems.push('слово набрано, а удаление всё ещё запрещено');
+await page.locator('.modal button:has-text("Отмена")').click();
+await page.waitForTimeout(300);
+
 await shot('sync-settings');
 
 // ── два языка ───────────────────────────────────────────────────────────────
