@@ -4,6 +4,7 @@ export * from './body-value.entity';
 export * from './daily-exercise.entity';
 export * from './daily-nutrients.entity';
 export * from './day-snapshot.entity';
+export * from './drive-fetch.entity';
 export * from './export-file.entity';
 export * from './health-daily.entity';
 export * from './health-import.entity';

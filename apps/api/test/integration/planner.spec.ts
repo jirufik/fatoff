@@ -60,6 +60,7 @@ describe('генератор режима', () => {
       registrationDate: '2026-08-01',
       profile: { sex: 'female', date_of_birth: '1990-06-04', body_height: 165 },
       syncEnabled: true,
+      driveEnabled: false,
       lastSyncStatus: 'never',
       createdAt: new Date(),
       updatedAt: new Date(),

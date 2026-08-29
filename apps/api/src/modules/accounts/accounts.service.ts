@@ -77,6 +77,7 @@ export class AccountsService {
       registrationDate: user.registration_date ? dayOf(user.registration_date) : null,
       profile: user as unknown as Record<string, unknown>,
       syncEnabled: true,
+      driveEnabled: false,
       lastSyncStatus: 'never',
       createdAt: new Date(),
       updatedAt: new Date(),

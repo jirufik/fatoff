@@ -56,6 +56,22 @@ export class Account {
   @Property({ type: 'text' })
   lastSyncStatus: AccountSyncStatus = 'never';
 
+  /**
+   * Откуда забирать выгрузку Apple Health: ссылка на папку или файл в Drive.
+   *
+   * Живёт в аккаунте, а не в настройках сервиса: выгрузка принадлежит человеку,
+   * а аккаунтов в сервисе несколько.
+   */
+  @Property({ type: 'text', nullable: true })
+  driveUrl: string | null = null;
+
+  /** Время ежедневной проверки, `ЧЧ:ММ`. Пусто — проверять не надо. */
+  @Property({ type: 'string', length: 5, nullable: true })
+  driveDailyAt: string | null = null;
+
+  @Property({ type: 'boolean' })
+  driveEnabled: boolean = false;
+
   @Property({ type: 'timestamptz' })
   createdAt: Date = new Date();
 

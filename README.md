@@ -9,6 +9,7 @@
 - **Питание и тренировки: что говорят источники и её данные** — [docs/ANALYSIS-NUTRITION.md](docs/ANALYSIS-NUTRITION.md)
 - **День целиком и генератор режима** — [docs/PLANNER-ARCHITECTURE.md](docs/PLANNER-ARCHITECTURE.md), [docs/PLANNER-PLAN.md](docs/PLANNER-PLAN.md)
 - **Ветки, окружения и правила репозитория** — [docs/GIT.md](docs/GIT.md)
+- **Выгрузка Apple Health из Google Drive** — [docs/DRIVE-IMPORT.md](docs/DRIVE-IMPORT.md)
 - **Журнал решений** — [docs/DECISIONS.md](docs/DECISIONS.md)
 - **Разобранное API YAZIO** — [docs/YAZIO-API.md](docs/YAZIO-API.md)
 
@@ -21,6 +22,9 @@
   только изменившееся — за счёт дешёвого детектора дневных итогов;
 - показать сводку: калории против цели, вес, полнота данных, ход выгрузки,
   замечания;
+- забрать выгрузку Apple Health из папки Google Drive — по расписанию или
+  кнопкой, — распознать её по содержимому и загрузить, пропустив уже знакомый
+  файл;
 - загрузить выгрузку Apple Health и свести её с дневником питания по дням:
   YAZIO знает приход энергии, Apple Health — расход, вместе они дают баланс;
 - смотреть всё загруженное прямо в браузере — с фильтрами и постранично;

@@ -56,6 +56,7 @@ describe('выгрузка файлов из базы', () => {
       registrationDate: '2026-08-01',
       profile: null,
       syncEnabled: true,
+      driveEnabled: false,
       lastSyncStatus: 'never',
       createdAt: new Date(),
       updatedAt: new Date(),
