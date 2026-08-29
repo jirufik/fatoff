@@ -14,6 +14,10 @@ coverage/
 .env.*
 !.env.example
 secrets/
+# настоящий конфиг туннеля: в нём адрес, идентификатор и путь к ключам
+infrastructure/cloudflared/config.yml
+# список своих опознавателей для проверки перед коммитом — он и сам не для git
+.scan-local.json
 *.pem
 *.key
 *.p12
