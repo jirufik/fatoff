@@ -46,6 +46,7 @@ describe('загрузка выгрузки Apple Health', () => {
       registrationDate: '2024-03-01',
       profile: null,
       syncEnabled: true,
+      driveEnabled: false,
       lastSyncStatus: 'never',
       createdAt: new Date(),
       updatedAt: new Date(),
