@@ -136,7 +136,7 @@ export const EN: Record<string, string> = {
   "section.data": "Everything in the database, filtered and paged: diary, days, foods, measurements, Apple Health.",
   "section.sync": "Pulling from YAZIO, importing Apple Health, and the account’s access settings.",
   "section.export": "Building a file for any period in four formats — to hand the data over for analysis.",
-  "sync.lede": "Pulling from YAZIO, importing Apple Health, and account access.",
+  "sync.lede": "How fresh the data is: the YAZIO diary and the Apple Health export. Details are behind the disclosures.",
   "sync.start": "Sync now",
   "sync.allDays": "every day in the period",
   "sync.force": "refetch everything",
