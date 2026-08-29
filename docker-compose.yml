@@ -39,7 +39,7 @@ services:
       YAZIO_CONCURRENCY: ${YAZIO_CONCURRENCY:-6}
       YAZIO_RESYNC_DAYS: ${YAZIO_RESYNC_DAYS:-3}
       YAZIO_TIMEOUT_MS: ${YAZIO_TIMEOUT_MS:-30000}
-      GOOGLE_SERVICE_ACCOUNT_FILE: ${GOOGLE_SERVICE_ACCOUNT_FILE:-secrets/service-account.json}
+      GOOGLE_SERVICE_ACCOUNT_FILE: /app/secrets/service-account.json
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       HEALTH_DIR: /app/health
       EXPORT_DIR: /app/storage/exports

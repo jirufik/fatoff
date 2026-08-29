@@ -64,7 +64,7 @@ export const envSchema = z.object({
    * С ним папку не нужно держать публичной: её открывают одному этому
    * пользователю. Ключ API остаётся запасным путём и требует публичной папки.
    */
-  GOOGLE_SERVICE_ACCOUNT_FILE: z.string().default('secrets/service-account.json'),
+  GOOGLE_SERVICE_ACCOUNT_FILE: z.string().default(''),
 
   /** Адрес Drive API; меняется только в тестах, где поднимается подставной. */
   DRIVE_API_BASE: z.string().default('https://www.googleapis.com/drive/v3'),
