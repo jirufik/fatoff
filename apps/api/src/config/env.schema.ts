@@ -48,7 +48,6 @@ export const envSchema = z.object({
   EXPORT_RETENTION_DAYS: z.coerce.number().int().min(0).default(30),
 
   /** cron ночной автосинхронизации; пустая строка — выключено */
-  SYNC_CRON: z.string().default('0 3 * * *'),
 
   /**
    * Ключ Google API для чтения публичной папки Drive.
@@ -56,6 +55,15 @@ export const envSchema = z.object({
    * Пустой — модуль загрузки из Drive не работает и честно об этом говорит.
    * OAuth не нужен: папка открыта по ссылке, ключ лишь позволяет её перечислить.
    */
+  /**
+   * Работают ли фоновые расписания в этом окружении.
+   *
+   * У прода и develop одна и та же копия базы, а значит и одни настройки
+   * аккаунтов. Без выключателя develop ходил бы в YAZIO и качал выгрузку из
+   * Drive вторым экземпляром — по тому же расписанию и за те же данные.
+   */
+  SCHEDULES_ENABLED: z.coerce.boolean().default(true),
+
   GOOGLE_API_KEY: z.string().default(''),
 
   /**

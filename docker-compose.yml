@@ -44,7 +44,9 @@ services:
       HEALTH_DIR: /app/health
       EXPORT_DIR: /app/storage/exports
       EXPORT_RETENTION_DAYS: ${EXPORT_RETENTION_DAYS:-30}
-      SYNC_CRON: ${SYNC_CRON:-0 3 * * *}
+      # расписания на проде работают: время синхронизации и проверки Drive
+      # задаётся у каждого аккаунта в интерфейсе
+      SCHEDULES_ENABLED: true
     volumes:
       - fatoff-exports:/app/storage/exports
       # каталог с выгрузками Apple Health — только на чтение: файл в два

@@ -277,6 +277,22 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "boolean"
+        },
+        "sync_daily_at": {
+          "name": "sync_daily_at",
+          "type": "varchar(5)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 5,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
         }
       },
       "name": "account",

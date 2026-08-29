@@ -35,6 +35,8 @@ const healthFile = ref('')
 const startingHealth = ref(false)
 
 const newLabel = ref('')
+/** Время ежедневной синхронизации; пустая строка снимает расписание. */
+const syncDailyAt = ref('')
 const newPassword = ref('')
 const newAccessToken = ref('')
 const newRefreshToken = ref('')
@@ -57,6 +59,7 @@ const healthPercent = computed(() => {
 async function loadAccount(): Promise<void> {
   account.value = await api.get<AccountDto>(`/accounts/${id}`)
   if (!newLabel.value) newLabel.value = account.value.label ?? ''
+  syncDailyAt.value = account.value.syncDailyAt ?? ''
 }
 
 async function loadOverview(): Promise<void> {
@@ -215,6 +218,7 @@ async function saveAccount(): Promise<void> {
     await api.patch(`/accounts/${id}`, {
       label: newLabel.value.trim() || null,
       syncEnabled: account.value?.syncEnabled,
+      syncDailyAt: syncDailyAt.value.trim() || null,
       ...(newPassword.value ? { password: newPassword.value } : {}),
       ...(newAccessToken.value ? { accessToken: newAccessToken.value.trim() } : {}),
       ...(newRefreshToken.value ? { refreshToken: newRefreshToken.value.trim() } : {}),
@@ -532,10 +536,17 @@ const runChip = (status: string): string =>
         <input v-model="newLabel" type="text" maxlength="64" :placeholder="account.email" />
       </label>
 
-      <label class="check" style="margin-bottom: 0.8rem">
-        <input v-model="account.syncEnabled" type="checkbox" />
-        {{ t('sync.account.auto') }}
-      </label>
+      <div class="row row--wrap" style="align-items: flex-end; gap: 0.75rem; margin-bottom: 0.4rem">
+        <label class="field" style="margin: 0; width: 12rem">
+          <span>{{ t('sync.daily') }}</span>
+          <input v-model="syncDailyAt" type="text" maxlength="5" placeholder="06:30" />
+        </label>
+        <label class="check" style="margin-bottom: 0.4rem">
+          <input v-model="account.syncEnabled" type="checkbox" />
+          {{ t('sync.account.auto') }}
+        </label>
+      </div>
+      <p class="tiny muted" style="margin: 0 0 0.8rem">{{ t('sync.daily.note') }}</p>
 
       <div class="row row--wrap" style="margin-bottom: 0.6rem">
         <span class="chip" :class="account.authMethod === 'password' ? 'chip--info' : 'chip--mute'">
@@ -572,7 +583,11 @@ const runChip = (status: string): string =>
         </label>
       </template>
 
-      <button class="btn btn--small" :disabled="savingAccess" @click="saveAccount">
+      <button
+        class="btn btn--small save-account"
+        :disabled="savingAccess"
+        @click="saveAccount"
+      >
         <span v-if="savingAccess" class="spinner" />
         {{ t('common.save') }}
       </button>
