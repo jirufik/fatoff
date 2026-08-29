@@ -67,9 +67,10 @@ services:
       HEALTH_DIR: /app/health
       EXPORT_DIR: /app/storage/exports
       EXPORT_RETENTION_DAYS: ${EXPORT_RETENTION_DAYS:-30}
-      # на develop ночная синхронизация выключена: тянуть YAZIO дважды за ночь
-      # незачем, а расписание прода от этого не зависит
-      SYNC_CRON: ${DEVELOP_SYNC_CRON:-}
+      # на develop фоновые расписания выключены: база у него — копия рабочей,
+      # с теми же настройками аккаунтов, и он ходил бы в YAZIO и качал выгрузку
+      # из Drive вторым экземпляром за теми же данными
+      SCHEDULES_ENABLED: false
     volumes:
       - fatoff-develop-exports:/app/storage/exports
       - ./apple-health:/app/health:ro

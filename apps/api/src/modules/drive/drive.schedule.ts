@@ -35,12 +35,16 @@ export class DriveSchedule implements OnModuleInit {
 
   onModuleInit(): void {
     if (this.cfg.isTest) return;
-    this.logger.log('Ежедневная проверка Google Drive включена: время задаётся в аккаунте');
+    this.logger.log(
+      this.cfg.get('SCHEDULES_ENABLED')
+        ? 'Ежедневная проверка Google Drive включена: время задаётся в аккаунте'
+        : 'Фоновые расписания выключены: SCHEDULES_ENABLED=false',
+    );
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
   async tick(): Promise<void> {
-    if (this.cfg.isTest) return;
+    if (this.cfg.isTest || !this.cfg.get('SCHEDULES_ENABLED')) return;
 
     const now = new Date();
     const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;

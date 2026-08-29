@@ -49,6 +49,11 @@ await page.waitForTimeout(400);
 
 // ── день целиком ────────────────────────────────────────────────────────────
 await page.goto(`${BASE}/accounts/${ACCOUNT}/journal`);
+await page.waitForSelector('.scope .pill', { timeout: 10_000 });
+// раскрывать надо день с едой: свежая выгрузка Apple Health добавляет сегодня,
+// а сегодня приёмов пищи может не быть вовсе — проверка ломалась на данных
+await page.locator('.scope .pill').nth(1).click();
+await page.waitForTimeout(1200);
 await page.waitForSelector('.day', { timeout: 10_000 });
 console.log('дней на странице:', await page.locator('.day').count());
 // навигация одна на все страницы аккаунта и стоит на одном месте
@@ -543,6 +548,39 @@ await page.waitForTimeout(700);
 const picked = await page.locator('.date__input').first().inputValue();
 if (!/^\d{2}\.\d{2}\.\d{4}$/.test(picked)) problems.push(`дата после выбора: «${picked}»`);
 await shot('calendar');
+
+// ── синхронизация и Google Drive: настройки аккаунта ────────────────────────
+// у каждого аккаунта своё время; общего расписания больше нет
+await page.goto(`${BASE}/accounts/${ACCOUNT}/sync`);
+await page.waitForSelector('.card', { timeout: 10_000 });
+await page.waitForTimeout(800);
+
+const dailyField = page.locator('input[placeholder="06:30"]').first();
+if ((await dailyField.count()) === 0) problems.push('нет поля времени синхронизации');
+await dailyField.fill('07:15');
+await page.locator('.save-account').click();
+await page.waitForTimeout(1000);
+await page.reload();
+await page.waitForSelector('.card', { timeout: 10_000 });
+await page.waitForTimeout(900);
+const savedDaily = await page.locator('input[placeholder="06:30"]').first().inputValue();
+console.log('время синхронизации после перезагрузки:', savedDaily);
+if (savedDaily !== '07:15') problems.push(`время синхронизации не сохранилось: «${savedDaily}»`);
+
+// карточка Drive на месте, а отказ без ключа объясним
+if ((await page.locator('h2:has-text("Google Drive")').count()) === 0) {
+  problems.push('на синхронизации нет карточки Google Drive');
+}
+const driveUrl = page.locator('input[type=url]');
+await driveUrl.fill('https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUv');
+await driveUrl.press('Tab');
+await page.waitForTimeout(700);
+await page.locator('button:has-text("Загрузить из Drive")').click();
+await page.waitForTimeout(2000);
+if ((await page.locator('.data tbody tr').count()) === 0) {
+  problems.push('проверка Drive не попала в журнал');
+}
+await shot('sync-settings');
 
 // ── два языка ───────────────────────────────────────────────────────────────
 await page.goto(`${BASE}/accounts/${ACCOUNT}/planner`);

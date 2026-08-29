@@ -2,6 +2,7 @@ import type { EntityManager, MikroORM } from '@mikro-orm/postgresql';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { CryptoService } from '../../src/common/crypto.service';
+import { SyncSchedule } from '../../src/modules/schedule/sync.schedule';
 import type { AppConfigService } from '../../src/config/app-config.service';
 import {
   Account,
@@ -30,6 +31,7 @@ describe('синхронизация: от YAZIO до базы', () => {
   let sync: SyncService;
   let cfg: ReturnType<typeof testConfig>;
   let account: Account;
+  let schedule: SyncSchedule;
 
   beforeAll(async () => {
     orm = await createTestOrm('sync');
@@ -51,6 +53,7 @@ describe('синхронизация: от YAZIO до базы', () => {
     const crypto = new CryptoService(cfg as unknown as AppConfigService);
     const yazio = new YazioService(cfg as unknown as AppConfigService, crypto, em);
     sync = new SyncService(em, cfg as unknown as AppConfigService, yazio);
+    schedule = new SyncSchedule(em, cfg as unknown as AppConfigService, sync);
 
     account = em.create(Account, {
       email: data.email,
@@ -70,6 +73,79 @@ describe('синхронизация: от YAZIO до базы', () => {
   afterEach(async () => {
     await fake.stop();
   });
+
+  // ── расписание у каждого аккаунта своё ───────────────────────────────────
+
+  /** Синхронизация уходит в фон; тесту расписания нужен её конец. */
+  const settle = async (): Promise<void> => {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const active = await em.fork().findOne(SyncRun, { status: { $in: ['queued', 'running'] } });
+      if (!active) return;
+      await new Promise((done) => setTimeout(done, 50));
+    }
+  };
+
+  const at = (hours: number, minutes: number): Date => new Date(2026, 7, 29, hours, minutes);
+
+  it('запускает синхронизацию в назначенное аккаунту время', async () => {
+    account.syncDailyAt = '06:30';
+    await em.flush();
+
+    expect(await schedule.runDue(at(6, 29))).toEqual([]);
+    expect(await schedule.runDue(at(6, 30))).toEqual([account.id]);
+
+    await settle();
+    const run = await em.fork().findOne(SyncRun, { account: account.id }, { orderBy: { startedAt: 'desc' } });
+    expect(run?.status).toBe('done');
+  });
+
+  it('в ту же минуту второй раз не запускает', async () => {
+    account.syncDailyAt = '06:30';
+    await em.flush();
+
+    expect(await schedule.runDue(at(6, 30))).toEqual([account.id]);
+    await settle();
+    // часы могут дёрнуться назад по NTP — минута наступит дважды
+    expect(await schedule.runDue(at(6, 30))).toEqual([]);
+  });
+
+  it('аккаунт без времени сам не синхронизируется вовсе', async () => {
+    account.syncDailyAt = null;
+    await em.flush();
+
+    for (let hour = 0; hour < 24; hour++) {
+      expect(await schedule.runDue(at(hour, 0))).toEqual([]);
+    }
+    expect(await em.fork().count(SyncRun, {})).toBe(0);
+  });
+
+  it('выключенный аккаунт не трогает, даже если время его', async () => {
+    account.syncDailyAt = '06:30';
+    account.syncEnabled = false;
+    await em.flush();
+
+    expect(await schedule.runDue(at(6, 30))).toEqual([]);
+  });
+
+  it('не начинает второй прогон поверх идущего', async () => {
+    account.syncDailyAt = '06:30';
+    await em.flush();
+    em.create(SyncRun, {
+      account,
+      status: 'running',
+      mode: 'incremental',
+      dateFrom: '2026-08-01',
+      dateTo: '2026-08-29',
+      datasets: [],
+      startedAt: new Date(),
+    } as never);
+    await em.flush();
+
+    // второй прогон поверх идущего упёрся бы в лимиты YAZIO и перезаписал бы
+    // друг другу дни: расписание такое пропускает
+    expect(await schedule.runDue(at(6, 30))).toEqual([]);
+  });
+
 
   /** Синхронно прогоняет запуск целиком — start() уходит в фон, а тесту нужен итог. */
   const runSync = async (request: Parameters<SyncService['start']>[1] = {}): Promise<SyncRun> => {

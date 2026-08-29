@@ -19,6 +19,8 @@ export interface AccountDto {
   authMethod: AuthMethod;
   registrationDate: IsoDate | null;
   syncEnabled: boolean;
+  /** Время ежедневной синхронизации `ЧЧ:ММ`; пусто — по общему расписанию. */
+  syncDailyAt: string | null;
   lastSyncAt: string | null;
   lastSyncStatus: AccountSyncStatus;
   /** Сколько дней аккаунта лежит в базе и за какой период. */
@@ -45,4 +47,5 @@ export interface UpdateAccountRequest {
   accessToken?: string;
   refreshToken?: string;
   syncEnabled?: boolean;
+  syncDailyAt?: string | null;
 }
