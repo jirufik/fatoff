@@ -9,7 +9,7 @@
     "lint": "turbo run lint",
     "test": "pnpm run scan:test && turbo run test",
     "scan": "node scripts/scan-secrets.mjs",
-    "scan:test": "node --test scripts/scan-secrets.test.mjs",
+    "scan:test": "node --test scripts/scan-secrets.test.mjs scripts/branch-rules.test.mjs",
     "typecheck": "turbo run typecheck",
     "db:up": "docker compose -f infrastructure/postgresql/docker-compose.yml up -d",
     "docker:up": "docker compose up -d --build",
