@@ -49,6 +49,25 @@ export const envSchema = z.object({
 
   /** cron ночной автосинхронизации; пустая строка — выключено */
   SYNC_CRON: z.string().default('0 3 * * *'),
+
+  /**
+   * Ключ Google API для чтения публичной папки Drive.
+   *
+   * Пустой — модуль загрузки из Drive не работает и честно об этом говорит.
+   * OAuth не нужен: папка открыта по ссылке, ключ лишь позволяет её перечислить.
+   */
+  GOOGLE_API_KEY: z.string().default(''),
+
+  /**
+   * Ключ сервисного аккаунта Google — предпочтительный способ.
+   *
+   * С ним папку не нужно держать публичной: её открывают одному этому
+   * пользователю. Ключ API остаётся запасным путём и требует публичной папки.
+   */
+  GOOGLE_SERVICE_ACCOUNT_FILE: z.string().default(''),
+
+  /** Адрес Drive API; меняется только в тестах, где поднимается подставной. */
+  DRIVE_API_BASE: z.string().default('https://www.googleapis.com/drive/v3'),
 });
 
 export type Env = z.infer<typeof envSchema>;

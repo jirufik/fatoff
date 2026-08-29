@@ -32,6 +32,8 @@ describe('словари', () => {
       'sync.health',
       'plans.pdf',
       'journal.legend.mid',
+      'drive',
+      'drive.url.hint',
     ]);
     const copied = Object.keys(RU).filter(
       (key) => RU[key] === EN[key] && !SAME_ON_PURPOSE.has(key) && !/^[\d\s—-]*$/.test(RU[key]),

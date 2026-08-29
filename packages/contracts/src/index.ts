@@ -2,6 +2,7 @@ export * from './accounts.js';
 export * from './analytics.js';
 export * from './browse.js';
 export * from './common.js';
+export * from './drive.js';
 export * from './dictionary.js';
 export * from './exports.js';
 export * from './health.js';

@@ -2,6 +2,8 @@
 import type {
   AccountDto,
   AccountOverviewDto,
+  DriveFetchDto,
+  DriveSettingsDto,
   HealthFileDto,
   HealthImportDto,
   SyncRunDetailDto,
@@ -9,7 +11,7 @@ import type {
 } from '@fatoff/contracts'
 
 const api = useApi()
-const { t } = useI18n()
+const { t, message } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id as string
@@ -71,9 +73,63 @@ async function loadHealth(): Promise<void> {
   healthImports.value = await api.get<HealthImportDto[]>(`/accounts/${id}/health/imports?limit=5`)
 }
 
+// ── выгрузка из Google Drive ───────────────────────────────────────────────
+const drive = ref<DriveSettingsDto | null>(null)
+const driveFetches = ref<DriveFetchDto[]>([])
+const driveBusy = ref(false)
+
+async function loadDrive(): Promise<void> {
+  ;[drive.value, driveFetches.value] = await Promise.all([
+    api.get<DriveSettingsDto>(`/accounts/${id}/drive/settings`),
+    api.get<DriveFetchDto[]>(`/accounts/${id}/drive/fetches?limit=5`),
+  ])
+}
+
+async function saveDrive(): Promise<void> {
+  if (!drive.value) return
+  try {
+    drive.value = await api.patch<DriveSettingsDto>(`/accounts/${id}/drive/settings`, {
+      url: drive.value.url,
+      dailyAt: drive.value.dailyAt,
+      enabled: drive.value.enabled,
+    })
+    notice.value = t('common.saved')
+  } catch (caught) {
+    error.value = errorMessage(caught)
+  }
+}
+
+/** Кнопка «Загрузить»: сходить в папку прямо сейчас. */
+async function checkDrive(): Promise<void> {
+  driveBusy.value = true
+  error.value = ''
+  try {
+    await api.post<DriveFetchDto>(`/accounts/${id}/drive/check`)
+    await Promise.all([loadDrive(), loadHealth()])
+  } catch (caught) {
+    error.value = errorMessage(caught)
+  } finally {
+    driveBusy.value = false
+  }
+}
+
+const DRIVE_TONE: Record<string, string> = {
+  imported: 'ok',
+  same: 'mute',
+  empty: 'mute',
+  rejected: 'warn',
+  failed: 'bad',
+}
+
 async function refresh(): Promise<void> {
   try {
-    await Promise.all([loadAccount(), loadOverview(), loadRuns(), loadHealth()])
+    await Promise.all([
+      loadAccount(),
+      loadOverview(),
+      loadRuns(),
+      loadHealth(),
+      loadDrive().catch(() => undefined),
+    ])
   } catch (caught) {
     error.value = errorMessage(caught)
   }
@@ -393,6 +449,79 @@ const runChip = (status: string): string =>
       </div>
       <p v-if="healthImports[0]?.error" class="alert alert--bad" style="margin: 0.75rem 0 0">
         {{ healthImports[0].error }}
+      </p>
+    </div>
+
+    <!-- ── выгрузка из Google Drive ────────────────────────────────────── -->
+    <h2>{{ t('drive') }}</h2>
+    <div v-if="drive" class="card">
+      <p class="tiny muted" style="margin-top: 0">{{ t('drive.lede') }}</p>
+
+      <div v-if="!drive.keyConfigured" class="alert alert--warn">{{ t('drive.noKey') }}</div>
+      <p v-else class="tiny muted" style="margin: 0 0 0.6rem">
+        {{ t(`drive.access.${drive.access}`) }}
+      </p>
+
+      <label class="field" style="margin: 0 0 0.6rem">
+        <span>{{ t('drive.url') }}</span>
+        <input
+          v-model="drive.url"
+          type="url"
+          :placeholder="t('drive.url.hint')"
+          @change="saveDrive"
+        />
+      </label>
+
+      <div class="row row--wrap" style="align-items: flex-end; gap: 0.75rem">
+        <label class="field" style="margin: 0; width: 12rem">
+          <span>{{ t('drive.dailyAt') }}</span>
+          <input v-model="drive.dailyAt" type="text" maxlength="5" placeholder="06:30" @change="saveDrive" />
+        </label>
+        <label class="check" style="margin-bottom: 0.4rem">
+          <input v-model="drive.enabled" type="checkbox" @change="saveDrive" />
+          {{ t('drive.enabled') }}
+        </label>
+        <button
+          class="btn btn--primary"
+          type="button"
+          :disabled="driveBusy || !drive.url"
+          style="margin-bottom: 0.15rem"
+          @click="checkDrive"
+        >
+          <span v-if="driveBusy" class="spinner" />
+          <AppIcon v-else name="swap" :size="14" />
+          {{ t('drive.check') }}
+        </button>
+      </div>
+
+      <h3 style="margin: 1rem 0 0.4rem; font-size: 0.95rem">{{ t('drive.history') }}</h3>
+      <p v-if="driveFetches.length === 0" class="tiny muted">{{ t('drive.history.empty') }}</p>
+      <div v-else class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>{{ t('sync.health.loaded') }}</th>
+              <th>{{ t('sync.col.status') }}</th>
+              <th>{{ t('drive.col.file') }}</th>
+              <th>{{ t('drive.col.trigger') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in driveFetches" :key="item.id">
+              <td class="mono">{{ when(item.finishedAt || item.startedAt) }}</td>
+              <td>
+                <span class="chip" :class="`chip--${DRIVE_TONE[item.status]}`">
+                  {{ t(`drive.status.${item.status}`) }}
+                </span>
+              </td>
+              <td class="file-name">{{ item.fileName || '—' }}</td>
+              <td class="tiny muted">{{ t(`drive.trigger.${item.trigger}`) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-if="driveFetches[0]?.error" class="alert alert--bad" style="margin: 0.75rem 0 0">
+        {{ message(driveFetches[0].error) }}
       </p>
     </div>
 

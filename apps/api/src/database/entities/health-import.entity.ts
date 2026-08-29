@@ -21,6 +21,15 @@ export class HealthImport {
   @ManyToOne(() => Account, { deleteRule: 'cascade' })
   account!: Account;
 
+  /**
+   * Имя файла, как его назвал источник.
+   *
+   * У загрузки из Google Drive путь внутренний (`<uuid>-drive.xml`), и
+   * показывать его человеку бессмысленно — он видел файл под другим именем.
+   */
+  @Property({ type: 'text', nullable: true })
+  fileLabel?: string | null;
+
   /** Путь к файлу внутри смонтированного каталога выгрузок. */
   @Property({ type: 'text' })
   filePath!: string;
