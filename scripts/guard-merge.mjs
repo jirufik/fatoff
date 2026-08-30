@@ -9,12 +9,12 @@
  * поэтому в репозитории выключен `merge.ff`: слияние всегда делает коммит, и
  * правило всегда проверяется.
  */
-import { mergeRefusal } from './branch-rules.mjs';
+import { APPROVAL_VAR, mergeRefusal } from './branch-rules.mjs';
 import { currentBranch, mergeSource } from './merge-source.mjs';
 
 const into = currentBranch();
 const from = mergeSource();
-const refusal = mergeRefusal(into, from);
+const refusal = mergeRefusal(into, from, process.env[APPROVAL_VAR] ?? '');
 
 if (refusal) {
   console.error(`\nСлияние остановлено.\n\n${refusal}`);
