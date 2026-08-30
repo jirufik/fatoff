@@ -1,0 +1,1158 @@
+<title>Умные весы: что они меряют</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --sunk: #eef0f4;
+    --ink: #16181d;
+    --ink-2: #4a4f5c;
+    --ink-3: #7b8291;
+    --line: #dfe3ea;
+    --line-soft: #eaedf2;
+    --accent: #2f5bd8;
+    --accent-ink: #1e3f9e;
+    --accent-bg: #e6ecfd;
+    --good: #16794f;
+    --good-bg: #e2f3ea;
+    --warn: #8a5a00;
+    --warn-bg: #fbf0da;
+    --bad: #b3283c;
+    --bad-bg: #fce8ea;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1115;
+      --surface: #171a20;
+      --sunk: #1e222a;
+      --ink: #e6e9f0;
+      --ink-2: #b4bac7;
+      --ink-3: #848c9c;
+      --line: #2b303a;
+      --line-soft: #232830;
+      --accent: #7d9bf5;
+      --accent-ink: #a8bdfa;
+      --accent-bg: #1b2540;
+      --good: #5fd0a0;
+      --good-bg: #12291f;
+      --warn: #e0b45c;
+      --warn-bg: #2b2211;
+      --bad: #f38b9b;
+      --bad-bg: #2e1419;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0f1115;
+    --surface: #171a20;
+    --sunk: #1e222a;
+    --ink: #e6e9f0;
+    --ink-2: #b4bac7;
+    --ink-3: #848c9c;
+    --line: #2b303a;
+    --line-soft: #232830;
+    --accent: #7d9bf5;
+    --accent-ink: #a8bdfa;
+    --accent-bg: #1b2540;
+    --good: #5fd0a0;
+    --good-bg: #12291f;
+    --warn: #e0b45c;
+    --warn-bg: #2b2211;
+    --bad: #f38b9b;
+    --bad-bg: #2e1419;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 3rem 1.25rem 6rem;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 0.6rem;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(1.9rem, 5vw, 2.7rem);
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    margin: 0 0 0.7rem;
+  }
+
+  .lede {
+    font-size: 1.08rem;
+    color: var(--ink-2);
+    max-width: 40rem;
+    margin: 0 0 1.4rem;
+  }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: 1.55rem;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 3.2rem 0 0.4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  h3 {
+    font-size: 1.06rem;
+    margin: 2rem 0 0.5rem;
+  }
+
+  h4 {
+    font-size: 0.95rem;
+    margin: 1.4rem 0 0.35rem;
+    color: var(--ink-2);
+  }
+
+  p { margin: 0 0 1rem; }
+  ul, ol { margin: 0 0 1rem; padding-left: 1.3rem; }
+  li { margin-bottom: 0.45rem; }
+  strong { font-weight: 650; }
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  .mono { font-family: var(--mono); font-size: 0.92em; font-variant-numeric: tabular-nums; }
+
+  /* ── карточка резюме ─────────────────────────────────────────────────── */
+  .summary {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.5rem 1.6rem 1.2rem;
+    margin: 0 0 1rem;
+  }
+  .summary h2 {
+    margin: 0 0 1rem;
+    padding: 0;
+    border: none;
+    font-size: 1.3rem;
+  }
+  .verdict {
+    display: grid;
+    gap: 0.9rem;
+    margin-bottom: 1.2rem;
+  }
+  .verdict__row {
+    display: grid;
+    grid-template-columns: 9.5rem 1fr;
+    gap: 0.9rem;
+    align-items: start;
+  }
+  .verdict__key {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding-top: 0.25rem;
+  }
+  .verdict__val { margin: 0; }
+  @media (max-width: 34rem) {
+    .verdict__row { grid-template-columns: 1fr; gap: 0.15rem; }
+  }
+
+  /* ── таблицы ─────────────────────────────────────────────────────────── */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 1.2rem 0 0.6rem;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: top;
+  }
+  th {
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--sunk);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .row-hi td { background: var(--accent-bg); }
+
+  .chip {
+    display: inline-block;
+    padding: 0.08rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+  .chip--good { background: var(--good-bg); color: var(--good); }
+  .chip--warn { background: var(--warn-bg); color: var(--warn); }
+  .chip--bad { background: var(--bad-bg); color: var(--bad); }
+  .chip--mute { background: var(--sunk); color: var(--ink-3); }
+
+  /* ── врезки ──────────────────────────────────────────────────────────── */
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    border-radius: 0 10px 10px 0;
+    padding: 0.9rem 1.1rem;
+    margin: 1.3rem 0;
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .note--warn { border-left-color: var(--warn); }
+  .note__title {
+    font-size: 0.74rem;
+    font-family: var(--mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 0.35rem;
+  }
+
+  figure {
+    margin: 1.8rem 0;
+    padding: 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  figure svg { display: block; width: 100%; height: auto; }
+  figcaption {
+    margin-top: 0.9rem;
+    font-size: 0.85rem;
+    color: var(--ink-3);
+    line-height: 1.5;
+  }
+
+  .src { font-size: 0.82rem; color: var(--ink-3); }
+  .src a { color: var(--ink-3); }
+
+  ol.sources { font-size: 0.88rem; }
+  ol.sources li { margin-bottom: 0.7rem; }
+  ol.sources .when { color: var(--ink-3); font-family: var(--mono); font-size: 0.9em; }
+
+  .grade {
+    display: inline-grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+</style>
+
+<div class="wrap">
+
+<p class="eyebrow">Разбор · 30 августа 2026</p>
+<h1>Умные весы: что они меряют, что придумывают и чем заменить Mi Scale 2</h1>
+<p class="lede">
+  Разбор Xiaomi Mi Body Composition Scale 2 по состоянию на сегодня: отдельно точность
+  взвешивания, отдельно точность состава тела. Плюс конкуренты в той же цене и на шаг
+  дороже — с оглядкой на то, доходят ли данные до Apple Health, откуда их читает сервис.
+  Цены финские и с AliExpress.
+</p>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<section class="summary">
+  <h2>Резюме</h2>
+
+  <div class="verdict">
+    <div class="verdict__row">
+      <div class="verdict__key">Как весы</div>
+      <p class="verdict__val">
+        <strong>Хорошие и менять незачем.</strong> Шаг 50 г, диапазон 100 г — 150 кг. В независимом
+        исследовании три сравнимых умных весов расходились с эталоном на 0–0,3 кг —
+        то есть на величину, которой можно пренебречь. Взвешивание — это тензодатчики,
+        а они давно перестали быть местом, где экономят.
+      </p>
+    </div>
+    <div class="verdict__row">
+      <div class="verdict__key">Как жироанализатор</div>
+      <p class="verdict__val">
+        <strong>Число нельзя принимать за правду, но тренду верить можно.</strong> Ключевое
+        исследование пятнадцати приборов против лабораторного эталона: в разовом замере
+        ошибка доли жира лежала в диапазоне от −3,5 до +11,7 процентных пункта, и лишь
+        треть приборов уложилась в ±2 п.п. А вот <em>изменение</em> за три месяца те же приборы
+        ловили гораздо лучше: 60 % уложились в ±1 п.п. Ваш сценарий — второй.
+      </p>
+    </div>
+    <div class="verdict__row">
+      <div class="verdict__key">Показателей</div>
+      <p class="verdict__val">
+        Заявлено 13. Измерены из них <strong>два</strong>: масса и электрическое сопротивление тела.
+        Остальные одиннадцать — арифметика от них плюс рост, возраст и пол. «Метаболический
+        возраст» и «оценка тела» — маркетинг, а не измерение.
+      </p>
+    </div>
+    <div class="verdict__row">
+      <div class="verdict__key">Слабое место</div>
+      <p class="verdict__val">
+        Не точность, а <strong>привязка к телефону</strong>: только Bluetooth, только приложение
+        Zepp Life, данные уезжают в Apple Health лишь когда приложение открыто рядом.
+        Пропущенный день — дырка в тренде.
+      </p>
+    </div>
+    <div class="verdict__row">
+      <div class="verdict__key">Менять на что</div>
+      <p class="verdict__val">
+        Если менять — то ради <strong>Wi-Fi и надёжной выгрузки</strong>, а не ради точности:
+        прибавки в точности за эти деньги не купить.
+        <br><strong>Withings Body Smart, ~80 €</strong> — Wi-Fi, пишет в Apple Health сам, многочастотный
+        биоимпеданс, режим спортсмена. Разумный шаг вверх.
+        <br><strong>Eufy Smart Scale P2 Pro, ~60 €</strong> — то же самое дешевле, 16 показателей, Wi-Fi.
+        <br><strong>Xiaomi S400, 29,99 €</strong> — если оставаться в бюджете: двухчастотный биоимпеданс
+        против одночастотного, батарея на 180 дней, официальная цена в ЕС.
+      </p>
+    </div>
+    <div class="verdict__row">
+      <div class="verdict__key">Чего не брать</div>
+      <p class="verdict__val">
+        Garmin Index S2 (109–150 €) — если вы не в экосистеме Garmin: дороже, а доля жира
+        в Apple Health исторически доезжала не всегда. Withings Body Scan (~400 €) — платите
+        за ЭКГ и «здоровье нервов», а не за точность доли жира.
+      </p>
+    </div>
+  </div>
+
+  <p style="margin-bottom:0">
+    <strong>Короткий ответ.</strong> Mi Scale 2 не устарела как весы и не была точна как жироанализатор
+    ни вчера, ни сегодня — этого не умеет ни один прибор её класса, и дорогие тоже.
+    Менять её имеет смысл, только если раздражает ритуал «открой приложение, чтобы вес записался».
+    Тогда — Withings Body Smart за 80 € или Eufy P2 Pro за 60 €.
+  </p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<h2>1. Что у вас в руках</h2>
+
+<p>
+  Mi Body Composition Scale 2 вышла в 2019 году и до сих пор в каталоге Xiaomi.
+  На AliExpress стоит <span class="mono">20–25 €</span>, официальная рекомендованная цена была
+  <span class="mono">$39,99 / £29,99</span> <a href="#s5">[5]</a>.
+</p>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Параметр</th><th>Значение</th><th>Что это значит</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Диапазон</td><td class="mono">100 г — 150 кг</td><td>Обычному человеку хватает</td></tr>
+    <tr><td>Шаг шкалы</td><td class="mono">50 г</td><td>Мельче, чем у большинства новых моделей с шагом 100 г</td></tr>
+    <tr><td>Метод</td><td>Биоимпеданс, нога-нога, 4 электрода</td><td>Ток идёт по ногам, туловище почти минует</td></tr>
+    <tr><td>Связь</td><td>Bluetooth 5.0</td><td>Нужен телефон рядом с открытым приложением</td></tr>
+    <tr><td>Приложение</td><td>Zepp Life (бывш. Mi Fit)</td><td>Mi Fitness весы не поддерживает <a href="#s7">[7]</a></td></tr>
+    <tr><td>Питание</td><td>4 × AAA</td><td>Не аккумулятор</td></tr>
+    <tr><td>Профилей</td><td>до 16</td><td>Различает по весу; при близком весе путается</td></tr>
+    <tr><td>Показателей</td><td>13</td><td>Из них измеренных — два. См. ниже</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="src">Характеристики: <a href="#s4">[4]</a>, обзор Tech Advisor <a href="#s5">[5]</a>.</p>
+
+<h3>Два измеренных числа и одиннадцать посчитанных</h3>
+
+<p>
+  Это главное, что стоит понять про любые бытовые весы с анализом состава тела.
+  Прибор физически измеряет <strong>массу</strong> (тензодатчики) и <strong>импеданс</strong> —
+  сопротивление тела слабому переменному току, который пропускается через ноги.
+  Больше он не измеряет ничего. Всё остальное — подстановка этих двух чисел в формулу
+  вместе с ростом, возрастом и полом, которые вы ввели руками.
+</p>
+
+<figure>
+  <svg viewBox="0 0 720 300" role="img" aria-label="Схема: из массы и импеданса плюс анкета получаются все остальные показатели">
+    <defs>
+      <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+        <path d="M0,0 L7,3.2 L0,6.4 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <g font-family="system-ui, sans-serif" font-size="13">
+      <!-- измерено -->
+      <text x="10" y="22" font-size="11" fill="var(--ink-3)" font-family="monospace" letter-spacing="1">ИЗМЕРЕНО ПРИБОРОМ</text>
+      <rect x="10" y="34" width="180" height="46" rx="9" fill="var(--accent-bg)" stroke="var(--accent)"/>
+      <text x="100" y="55" text-anchor="middle" fill="var(--accent-ink)" font-weight="600">Масса</text>
+      <text x="100" y="71" text-anchor="middle" fill="var(--accent-ink)" font-size="11">тензодатчики</text>
+
+      <rect x="10" y="90" width="180" height="46" rx="9" fill="var(--accent-bg)" stroke="var(--accent)"/>
+      <text x="100" y="111" text-anchor="middle" fill="var(--accent-ink)" font-weight="600">Импеданс</text>
+      <text x="100" y="127" text-anchor="middle" fill="var(--accent-ink)" font-size="11">сопротивление ног</text>
+
+      <!-- анкета -->
+      <text x="10" y="176" font-size="11" fill="var(--ink-3)" font-family="monospace" letter-spacing="1">ВВЕДЕНО ВАМИ</text>
+      <rect x="10" y="188" width="180" height="46" rx="9" fill="var(--sunk)" stroke="var(--line)"/>
+      <text x="100" y="209" text-anchor="middle" fill="var(--ink-2)" font-weight="600">Рост, возраст, пол</text>
+      <text x="100" y="225" text-anchor="middle" fill="var(--ink-3)" font-size="11">и «режим спортсмена»</text>
+
+      <!-- формула -->
+      <g color="var(--ink-3)">
+        <line x1="196" y1="57" x2="256" y2="120" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
+        <line x1="196" y1="113" x2="256" y2="128" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
+        <line x1="196" y1="211" x2="256" y2="145" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
+      </g>
+      <rect x="262" y="105" width="132" height="60" rx="9" fill="var(--surface)" stroke="var(--ink-3)" stroke-dasharray="4 3"/>
+      <text x="328" y="130" text-anchor="middle" fill="var(--ink)" font-weight="600">Закрытая</text>
+      <text x="328" y="148" text-anchor="middle" fill="var(--ink)" font-weight="600">формула</text>
+
+      <g color="var(--ink-3)">
+        <line x1="400" y1="135" x2="450" y2="135" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
+      </g>
+
+      <!-- посчитано -->
+      <text x="456" y="22" font-size="11" fill="var(--ink-3)" font-family="monospace" letter-spacing="1">ПОСЧИТАНО ФОРМУЛОЙ</text>
+      <g font-size="12" fill="var(--ink-2)">
+        <rect x="456" y="34" width="254" height="232" rx="9" fill="var(--sunk)" stroke="var(--line)"/>
+        <text x="472" y="56">Доля жира · Мышечная масса</text>
+        <text x="472" y="78">Вода · Белок · Костная масса</text>
+        <text x="472" y="100">Висцеральный жир · Основной обмен</text>
+        <text x="472" y="122">ИМТ · Идеальный вес</text>
+        <text x="472" y="152" fill="var(--ink-3)" font-style="italic">Метаболический возраст</text>
+        <text x="472" y="172" fill="var(--ink-3)" font-style="italic">Оценка тела</text>
+        <text x="472" y="192" fill="var(--ink-3)" font-style="italic">Тип телосложения</text>
+        <line x1="472" y1="206" x2="694" y2="206" stroke="var(--line)"/>
+        <text x="472" y="228" font-size="11" fill="var(--ink-3)">курсивом — не измерение, а</text>
+        <text x="472" y="245" font-size="11" fill="var(--ink-3)">пересказ тех же двух чисел</text>
+      </g>
+    </g>
+  </svg>
+  <figcaption>
+    Тринадцать показателей вырастают из двух измерений. Ошибка в импедансе размножается
+    по всем одиннадцати сразу — они не независимы и не проверяют друг друга.
+  </figcaption>
+</figure>
+
+<div class="note">
+  <p class="note__title">Практический вывод</p>
+  <p>
+    «У этих весов 13 показателей, а у тех 25» — не довод. Прибавка идёт не от новых датчиков,
+    а от новых строк в формуле. У Xiaomi S400 их 25 <a href="#s8">[8]</a>, у Eufy P3 — 16
+    <a href="#s11">[11]</a>, физически измеряется в обоих случаях то же самое.
+  </p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<h2>2. Теория: почему нога-нога — самый слабый вариант</h2>
+
+<p>
+  Биоимпедансный анализ (BIA) стоит на простом наблюдении: мышцы и внутренние органы
+  насыщены водой с электролитами и ток проводят хорошо, жировая ткань — плохо. Пропустив
+  через тело слабый ток и померив сопротивление, можно оценить общий объём воды в теле,
+  из неё — безжировую массу, а вычтя её из веса — жировую.
+</p>
+
+<p>
+  Вся конструкция держится на цепочке допущений, и каждое звено даёт свою ошибку:
+</p>
+
+<ol>
+  <li><strong>Тело — однородный проводник постоянного сечения.</strong> Оно не такое:
+      рука, туловище и бедро отличаются и по составу, и по толщине.</li>
+  <li><strong>Безжировая масса содержит постоянную долю воды (≈73 %).</strong> У живого
+      человека доля плавает: от обезвоживания, соли, фазы цикла, воспаления после тренировки.</li>
+  <li><strong>Формула, полученная на выборке, годится и для вас.</strong> Формулы строят
+      регрессией на группах людей — и на краях распределения (очень худые, очень полные,
+      спортсмены) они систематически промахиваются.</li>
+</ol>
+
+<h3>Куда идёт ток</h3>
+
+<p>
+  В весах с четырьмя электродами под ступнями ток входит в одну ногу и выходит из другой.
+  Кратчайший путь идёт по нижней половине тела, а туловище — где живёт большая часть
+  висцерального жира и внутренних органов — оказывается почти не охвачено. Приборы
+  с электродами и в руках (восемь электродов, «октаполярные») пускают ток ещё и через
+  верх и потому видят больше.
+</p>
+
+<figure>
+  <svg viewBox="0 0 720 288" role="img" aria-label="Схема путей тока: нога-нога против рука-нога">
+    <g font-family="system-ui, sans-serif" font-size="12">
+      <!-- ── нога — нога ─────────────────────────────────────────────── -->
+      <text x="20" y="20" font-size="11" font-family="monospace" fill="var(--ink-3)" letter-spacing="1">НОГА — НОГА · 4 ЭЛЕКТРОДА</text>
+      <g transform="translate(70,32)">
+        <!-- область, которую ток почти минует -->
+        <ellipse cx="90" cy="82" rx="33" ry="34" fill="var(--bad-bg)"/>
+        <!-- путь тока: точно по ногам, поверх подложки, под контуром фигуры -->
+        <path d="M66 176 L90 110 L114 176" fill="none" stroke="var(--accent)"
+              stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+        <!-- фигура -->
+        <circle cx="90" cy="26" r="16" fill="none" stroke="var(--ink-3)" stroke-width="1.6"/>
+        <path d="M90 42 L90 110 M90 58 L56 88 M90 58 L124 88 M90 110 L66 176 M90 110 L114 176"
+              fill="none" stroke="var(--ink-3)" stroke-width="1.6" stroke-linecap="round"/>
+        <!-- платформа с электродами под ступнями -->
+        <rect x="36" y="178" width="108" height="14" rx="4" fill="var(--sunk)" stroke="var(--line)"/>
+        <rect x="42" y="178" width="42" height="14" rx="4" fill="var(--accent-bg)" stroke="var(--accent)"/>
+        <rect x="96" y="178" width="42" height="14" rx="4" fill="var(--accent-bg)" stroke="var(--accent)"/>
+      </g>
+      <text x="20" y="240" font-size="12" fill="var(--bad)">Ток идёт по ногам, туловище почти не охвачено</text>
+      <text x="20" y="262" font-size="11" fill="var(--ink-3)">Mi Scale 2, Xiaomi S400, Eufy P2/P3,</text>
+      <text x="20" y="278" font-size="11" fill="var(--ink-3)">Withings Body Smart, Garmin Index S2</text>
+
+      <line x1="360" y1="30" x2="360" y2="258" stroke="var(--line)"/>
+
+      <!-- ── рука — нога ─────────────────────────────────────────────── -->
+      <text x="392" y="20" font-size="11" font-family="monospace" fill="var(--ink-3)" letter-spacing="1">РУКА — НОГА · 8 ЭЛЕКТРОДОВ</text>
+      <g transform="translate(442,32)">
+        <ellipse cx="90" cy="82" rx="33" ry="34" fill="var(--good-bg)"/>
+        <path d="M57 88 L90 58 L90 110 L114 176" fill="none" stroke="var(--accent)"
+              stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+        <path d="M123 88 L90 58" fill="none" stroke="var(--accent)"
+              stroke-width="7" stroke-linecap="round" opacity="0.3"/>
+        <circle cx="90" cy="26" r="16" fill="none" stroke="var(--ink-3)" stroke-width="1.6"/>
+        <path d="M90 42 L90 110 M90 58 L56 88 M90 58 L124 88 M90 110 L66 176 M90 110 L114 176"
+              fill="none" stroke="var(--ink-3)" stroke-width="1.6" stroke-linecap="round"/>
+        <rect x="36" y="178" width="108" height="14" rx="4" fill="var(--sunk)" stroke="var(--line)"/>
+        <rect x="42" y="178" width="42" height="14" rx="4" fill="var(--accent-bg)" stroke="var(--accent)"/>
+        <rect x="96" y="178" width="42" height="14" rx="4" fill="var(--accent-bg)" stroke="var(--accent)"/>
+        <!-- электроды в ладонях -->
+        <rect x="42" y="82" width="30" height="12" rx="5" fill="var(--accent-bg)" stroke="var(--accent)"/>
+        <rect x="108" y="82" width="30" height="12" rx="5" fill="var(--accent-bg)" stroke="var(--accent)"/>
+      </g>
+      <text x="392" y="240" font-size="12" fill="var(--good)">Ток проходит через туловище целиком</text>
+      <text x="392" y="262" font-size="11" fill="var(--ink-3)">InBody, Tanita RD, Omron, Withings Body Scan,</text>
+      <text x="392" y="278" font-size="11" fill="var(--ink-3)">Renpho с выдвижными ручками</text>
+    </g>
+  </svg>
+  <figcaption>
+    В исследовании пятнадцати приборов октаполярные модели держались в верхней половине
+    рейтинга, а часть моделей «нога-нога» — в нижней <a href="#s2">[2]</a>. Все весы, которые
+    можно поставить в ванной и просто встать, относятся к левой схеме, включая самые дорогие.
+  </figcaption>
+</figure>
+
+<h3>Одна частота или несколько</h3>
+
+<p>
+  Ток низкой частоты (около 50 кГц) идёт в основном по внеклеточной жидкости — клеточные
+  мембраны для него как конденсаторы. Ток высокой частоты проникает и внутрь клеток.
+  Прибор, работающий на одной частоте, вынужден достраивать внутриклеточную воду формулой;
+  многочастотный меряет обе доли. Практически это даёт устойчивость к колебаниям
+  гидратации, а не скачок точности: Mi Scale 2 — одночастотная, Xiaomi S400 заявлена
+  двухчастотной <a href="#s8">[8]</a>, Withings Body Smart и Body Comp — многочастотные
+  <a href="#s10">[10]</a>.
+</p>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<h2>3. Точность: два разных вопроса</h2>
+
+<h3>Точность взвешивания — вопрос закрытый</h3>
+
+<p>
+  В исследовании JMIR (2021) трое умных весов сравнивали с эталонной процедурой
+  на пациентах клиники. Медианная абсолютная ошибка веса составила
+  <span class="mono">0 кг</span>, <span class="mono">0,25 кг</span> и <span class="mono">0,3 кг</span>
+  <a href="#s1">[1]</a>. Для отслеживания динамики этого достаточно с запасом: недельное
+  колебание веса у живого человека — плюс-минус килограмм от одной только воды.
+</p>
+
+<h3>Точность состава тела — вопрос открытый и неприятный</h3>
+
+<p>
+  Здесь же, на тех же приборах, ошибка жировой массы была <span class="mono">−2,2</span>,
+  <span class="mono">−3,7</span> и <span class="mono">−4,4 кг</span>, причём все три прибора
+  <strong>систематически занижали</strong> жир. Вывод авторов дословно: «умные весы неточны
+  в отношении состава тела и не должны заменять DEXA» <a href="#s1">[1]</a>.
+</p>
+
+<p>
+  Более полная картина — в работе Siedler и соавт. (2023, British Journal of Nutrition):
+  пятнадцать приборов ценой от <span class="mono">$24 до $349</span> против четырёхкомпонентной
+  лабораторной модели, 73 человека, повторный замер через 12–16 недель у 37 из них
+  <a href="#s2">[2]</a>. Это лучшее, что есть по теме, и главный результат такой:
+</p>
+
+<figure>
+  <svg viewBox="0 0 720 300" role="img" aria-label="Столбчатая диаграмма: разовый замер против отслеживания изменения">
+    <g font-family="system-ui, sans-serif">
+      <text x="10" y="18" font-size="11" font-family="monospace" fill="var(--ink-3)" letter-spacing="1">SIEDLER 2023 · 15 ПРИБОРОВ ПРОТИВ 4C-МОДЕЛИ · n = 73</text>
+
+      <!-- левая панель -->
+      <text x="10" y="48" font-size="13" font-weight="600" fill="var(--ink)">Разовый замер: сколько у вас жира</text>
+      <rect x="10" y="60" width="330" height="86" rx="8" fill="var(--bad-bg)"/>
+      <text x="26" y="86" font-size="11" fill="var(--ink-2)">Систематическая ошибка</text>
+      <text x="324" y="86" font-size="15" font-weight="700" text-anchor="end" fill="var(--bad)" font-family="monospace">−3,5 … +11,7 п.п.</text>
+      <text x="26" y="112" font-size="11" fill="var(--ink-2)">Ошибка оценки (SEE)</text>
+      <text x="324" y="112" font-size="15" font-weight="700" text-anchor="end" fill="var(--bad)" font-family="monospace">3,1 … 7,5 п.п.</text>
+      <text x="26" y="136" font-size="11" fill="var(--ink-2)">Уложились в ±2 п.п.</text>
+      <text x="324" y="136" font-size="15" font-weight="700" text-anchor="end" fill="var(--bad)" font-family="monospace">5 из 15</text>
+
+      <!-- шкала слева -->
+      <g transform="translate(10,168)">
+        <text x="0" y="0" font-size="11" fill="var(--ink-3)">доля приборов, попавших в допуск</text>
+        <rect x="0" y="10" width="330" height="20" rx="5" fill="var(--sunk)"/>
+        <rect x="0" y="10" width="110" height="20" rx="5" fill="var(--bad)"/>
+        <text x="120" y="25" font-size="12" fill="var(--ink-2)" font-family="monospace">33 %</text>
+      </g>
+
+      <!-- правая панель -->
+      <text x="380" y="48" font-size="13" font-weight="600" fill="var(--ink)">Изменение за 3 месяца: куда двинулось</text>
+      <rect x="380" y="60" width="330" height="86" rx="8" fill="var(--good-bg)"/>
+      <text x="396" y="86" font-size="11" fill="var(--ink-2)">Систематическая ошибка</text>
+      <text x="694" y="86" font-size="15" font-weight="700" text-anchor="end" fill="var(--good)" font-family="monospace">−0,4 … +1,3 п.п.</text>
+      <text x="396" y="112" font-size="11" fill="var(--ink-2)">Ошибка оценки (SEE)</text>
+      <text x="694" y="112" font-size="15" font-weight="700" text-anchor="end" fill="var(--good)" font-family="monospace">1,7 … 2,6 п.п.</text>
+      <text x="396" y="136" font-size="11" fill="var(--ink-2)">Уложились в ±1 п.п.</text>
+      <text x="694" y="136" font-size="15" font-weight="700" text-anchor="end" fill="var(--good)" font-family="monospace">9 из 15</text>
+
+      <g transform="translate(380,168)">
+        <text x="0" y="0" font-size="11" fill="var(--ink-3)">доля приборов, попавших в допуск</text>
+        <rect x="0" y="10" width="330" height="20" rx="5" fill="var(--sunk)"/>
+        <rect x="0" y="10" width="198" height="20" rx="5" fill="var(--good)"/>
+        <text x="208" y="25" font-size="12" fill="var(--ink-2)" font-family="monospace">60 %</text>
+      </g>
+
+      <line x1="10" y1="222" x2="710" y2="222" stroke="var(--line)"/>
+      <text x="10" y="248" font-size="12.5" fill="var(--ink-2)">Абсолютное число врёт. Направление и величина изменения — гораздо надёжнее.</text>
+      <text x="10" y="272" font-size="12.5" fill="var(--ink-2)">Отсюда единственный правильный способ пользоваться такими весами: смотреть на тренд.</text>
+    </g>
+  </svg>
+  <figcaption>
+    п.п. — процентные пункты доли жира. SEE — стандартная ошибка оценки: разброс вокруг
+    систематического смещения. Данные: Siedler et al., <em>Br J Nutr</em> 2023;130(5):827–840
+    <a href="#s2">[2]</a>.
+  </figcaption>
+</figure>
+
+<div class="note note--warn">
+  <p class="note__title">Неприятная находка того же исследования</p>
+  <p>
+    У пяти приборов «нога-нога» повторяемость оказалась <em>подозрительно хорошей</em> —
+    настолько, что авторы предположили: алгоритм искусственно ограничивает разброс выдачи
+    <a href="#s2">[2]</a>. Проще говоря, прибор может показывать стабильное число не потому,
+    что стабильно измеряет, а потому, что сглаживает результат. Стабильность показаний
+    сама по себе — не доказательство точности.
+  </p>
+</div>
+
+<p>
+  Отдельно про края распределения. Разбор того же исследования, сделанный Грантом Тинсли
+  (Texas Tech University), отмечает: около 40 % приборов заметно теряют чувствительность
+  у людей с долей жира ниже 20 % или заметно выше среднего, работая прилично только
+  в середине диапазона <a href="#s3">[3]</a>. Там же — конкретный пример: у одной из моделей
+  Withings совпадение с эталоном ниже 20 % жира было около 2 %.
+</p>
+
+<h3>Что об этом говорит сам Xiaomi</h3>
+
+<p>
+  Для модели S400 Xiaomi ссылается на испытание в Пекинском спортивном университете
+  (отчёт <span class="mono">BSU20220389</span>) и заявляет коэффициент корреляции
+  <span class="mono">≥ 0,93</span> с DEXA по жировой массе <a href="#s6">[6]</a>. Это заказное
+  испытание производителя, и главное — <strong>корреляция не означает совпадение</strong>:
+  прибор, который стабильно занижает жир на 5 процентных пунктов, даст почти идеальную
+  корреляцию. Ровно это и показало независимое исследование: высокая согласованность
+  по Лину у части приборов сочеталась с систематическим смещением <a href="#s2">[2]</a>.
+</p>
+
+<h3>Почему число скачет день ото дня</h3>
+
+<p>
+  Показания зависят от воды в теле, а вода меняется быстрее жира. Служба поддержки Tanita
+  прямо пишет: доля жира может колебаться до 10 % в зависимости от гидратации, и при
+  обезвоживании прибор показывает <em>больше</em> жира, чем есть <a href="#s12">[12]</a>.
+  Отсюда стандартный протокол: мерить утром, после туалета, до еды, питья и тренировки,
+  каждый раз одинаково.
+</p>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<h2>4. Что говорят обзоры и живые пользователи</h2>
+
+<p>
+  Отзывы по Mi Scale 2 удивительно единодушны и совпадают с тем, что показывают исследования.
+</p>
+
+<ul>
+  <li>
+    <strong>Tech Advisor</strong> (декабрь 2021, £29,99): весы точны при сверке с другими весами,
+    но «требуют пары попыток, чтобы откалиброваться» — первые замеры бывают мусорными.
+    Рецензент прямо говорит, что для отслеживания прогресса важнее <em>постоянство</em>, а не
+    абсолютная точность. Минусы: батарейки вместо аккумулятора, только Bluetooth, на экране
+    показывается лишь вес <a href="#s5">[5]</a>.
+  </li>
+  <li>
+    <strong>Notebookcheck</strong> (июль 2026), разбирая новую S400 Pro, повторяет ту же мысль
+    про физику: биоимпеданс «имеет врождённые ограничения, особенно в приборах без ручных
+    электродов», потому что ток идёт в основном по нижней части тела <a href="#s9">[9]</a>.
+  </li>
+  <li>
+    <strong>Yahoo Health</strong> (июль 2026) протестировали 14 моделей за четыре недели и
+    формулируют осторожно: даже в лабораторных условиях у таких весов ошибка порядка
+    ±10–12 %, а смысл в отслеживании тренда, а не в разовом числе <a href="#s13">[13]</a>.
+  </li>
+</ul>
+
+<div class="note">
+  <p class="note__title">Ограничение этого раздела</p>
+  <p>
+    Reddit закрыт для автоматического доступа, поэтому веток оттуда здесь нет. Форумные
+    источники ниже — с площадок, которые отдают содержимое: официальный форум Garmin,
+    поддержка Tanita, поддержка Xiaomi. Где утверждение опирается на пересказ, а не на
+    первоисточник, это помечено.
+  </p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<h2>5. Куда уходят данные — и почему это важнее точности</h2>
+
+<p>
+  Ваш сервис читает долю жира из Apple Health и через неё считает безжировую массу,
+  а из неё — энергодоступность. То есть цепочка полезна ровно настолько, насколько
+  надёжно число доезжает до Apple Health. Здесь между моделями разница <em>больше</em>,
+  чем в точности.
+</p>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Модель</th><th>Связь</th><th>Приложение</th>
+      <th>Что попадает в Apple Health</th><th>Ритуал</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="row-hi">
+      <td><strong>Mi Scale 2</strong></td>
+      <td>Bluetooth</td>
+      <td>Zepp Life</td>
+      <td>Вес, доля жира, безжировая масса, ИМТ <a href="#s7">[7]</a></td>
+      <td><span class="chip chip--warn">телефон рядом</span></td>
+    </tr>
+    <tr>
+      <td>Xiaomi S400</td>
+      <td>Bluetooth</td>
+      <td>Mi Home</td>
+      <td>Вес, доля жира, рост, индекс жира <a href="#s6">[6]</a></td>
+      <td><span class="chip chip--warn">телефон рядом</span></td>
+    </tr>
+    <tr>
+      <td>Eufy P2 Pro / P3</td>
+      <td>Wi-Fi</td>
+      <td>EufyLife</td>
+      <td>Вес и состав тела <a href="#s11">[11]</a></td>
+      <td><span class="chip chip--good">само</span></td>
+    </tr>
+    <tr>
+      <td>Withings Body Smart</td>
+      <td>Wi-Fi + BT</td>
+      <td>Withings Health Mate</td>
+      <td>Вес и состав тела <a href="#s10">[10]</a></td>
+      <td><span class="chip chip--good">само</span></td>
+    </tr>
+    <tr>
+      <td>Garmin Index S2</td>
+      <td>Wi-Fi</td>
+      <td>Garmin Connect</td>
+      <td>Вес и ИМТ надёжно; по доле жира — давние жалобы <a href="#s14">[14]</a></td>
+      <td><span class="chip chip--good">само</span></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note note--warn">
+  <p class="note__title">Про Garmin — честно</p>
+  <p>
+    Ветка на официальном форуме Garmin, где пользователи фиксируют, что в Apple Health
+    доезжают вес и ИМТ, а доля жира перестала — <strong>от 2018 года</strong> <a href="#s14">[14]</a>.
+    Свежего подтверждения, что так и сегодня, я не нашёл, поэтому это не факт про 2026 год,
+    а причина проверить перед покупкой, если Garmin вам не нужен по другим причинам.
+  </p>
+</div>
+
+<p>
+  Отдельно стоит знать про <strong>SmartScaleConnect</strong> — открытый инструмент, который
+  вытаскивает данные с весов Xiaomi и перекладывает их между экосистемами <a href="#s15">[15]</a>.
+  Если единственная претензия к Mi Scale 2 — привязка к Zepp Life, это дешевле новых весов.
+</p>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<h2>6. Конкуренты: цены Финляндии и AliExpress</h2>
+
+<p>
+  Первая группа — тот же ценовой диапазон, что и Mi Scale 2. Вторая — на шаг дороже,
+  чтобы было видно, что покупается за доплату.
+</p>
+
+<h3>Свой диапазон: 20–60 €</h3>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Модель</th><th class="num">Цена</th><th>Метод</th><th>Показателей</th><th>Ключевое</th></tr>
+  </thead>
+  <tbody>
+    <tr class="row-hi">
+      <td><strong>Xiaomi Mi Scale 2</strong><br><span class="src">ваши</span></td>
+      <td class="num">20–25 €<br><span class="src">AliExpress</span></td>
+      <td>Одна частота<br>нога-нога</td>
+      <td class="num">13</td>
+      <td>Шаг 50 г — мельче, чем у большинства. Только Bluetooth, батарейки</td>
+    </tr>
+    <tr>
+      <td><strong>Xiaomi S400</strong></td>
+      <td class="num">29,99 €<br><span class="src">офиц. ЕС</span></td>
+      <td>Две частоты<br>нога-нога</td>
+      <td class="num">25</td>
+      <td>Батарея 180 дней, до 36 профилей, шаг 100 г. Двухчастотность — реальная прибавка</td>
+    </tr>
+    <tr>
+      <td><strong>Eufy Smart Scale P2 Pro</strong></td>
+      <td class="num">≈ 60 €<br><span class="src">Германия</span></td>
+      <td>Одна частота<br>нога-нога</td>
+      <td class="num">16</td>
+      <td><strong>Wi-Fi</strong> — вес записывается без телефона. Apple Health, Google Fit, Fitbit</td>
+    </tr>
+    <tr>
+      <td>Renpho Elis</td>
+      <td class="num">≈ 25–40 €</td>
+      <td>Одна частота<br>нога-нога</td>
+      <td class="num">13</td>
+      <td>USB-C вместо батареек, Apple Health. В ЕС продаётся через renpho.eu <a href="#s16">[16]</a></td>
+    </tr>
+    <tr>
+      <td>Xiaomi S400 Pro</td>
+      <td class="num">н/д</td>
+      <td>Две частоты<br>нога-нога</td>
+      <td class="num">25+</td>
+      <td>С экраном, BT 5.1. На июль 2026 в ЕС у ритейлеров нет, только прямой ввоз <a href="#s9">[9]</a></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Шаг вверх: 80–200 €</h3>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Модель</th><th class="num">Цена в Финляндии</th><th>Что добавляет</th><th>Стоит ли</th></tr>
+  </thead>
+  <tbody>
+    <tr class="row-hi">
+      <td><strong>Withings Body Smart</strong></td>
+      <td class="num">от 79,90 €</td>
+      <td>Многочастотный биоимпеданс, Wi-Fi, режимы спортсмена и беременности,
+          пульс стоя, шаг 0,1 кг <a href="#s10">[10]</a></td>
+      <td><span class="chip chip--good">да, если менять</span></td>
+    </tr>
+    <tr>
+      <td>Garmin Index S2</td>
+      <td class="num">109–150 €<br><span class="src">Gigantti 119 €</span></td>
+      <td>Wi-Fi, тренд веса, тесная связь с Garmin Connect <a href="#s17">[17]</a></td>
+      <td><span class="chip chip--warn">только «своим»</span></td>
+    </tr>
+    <tr>
+      <td>Withings Body Comp</td>
+      <td class="num">195,95 €</td>
+      <td>Сосудистый возраст, оценка состояния нервов, расширенная аналитика</td>
+      <td><span class="chip chip--mute">не за точность</span></td>
+    </tr>
+    <tr>
+      <td>Withings Body Scan</td>
+      <td class="num">≈ 400 €</td>
+      <td>Ручной электрод, ЭКГ, сегментный анализ — единственный домашний прибор
+          с восемью электродами в этом списке</td>
+      <td><span class="chip chip--mute">другая задача</span></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<figure>
+  <svg viewBox="0 0 720 300" role="img" aria-label="Расположение моделей по цене и по надёжности выгрузки">
+    <g font-family="system-ui, sans-serif" font-size="12">
+      <rect x="14" y="34" width="692" height="92" rx="8" fill="var(--good-bg)" opacity="0.5"/>
+      <rect x="14" y="138" width="692" height="82" rx="8" fill="var(--sunk)"/>
+
+      <text x="28" y="54" font-size="11" font-family="monospace" fill="var(--good)" letter-spacing="1">WI-FI · ПИШЕТ САМО</text>
+      <text x="28" y="158" font-size="11" font-family="monospace" fill="var(--ink-3)" letter-spacing="1">BLUETOOTH · НУЖЕН ТЕЛЕФОН РЯДОМ</text>
+
+      <!-- Wi-Fi: дороже, но данные не теряются -->
+      <g>
+        <text x="252" y="78" text-anchor="middle" font-size="11.5" fill="var(--ink)" font-weight="600">Withings Body Smart</text>
+        <circle cx="252" cy="96" r="9" fill="var(--good)" stroke="var(--surface)" stroke-width="2"/>
+
+        <circle cx="196" cy="96" r="7" fill="var(--good)"/>
+        <text x="196" y="117" text-anchor="middle" font-size="11.5" fill="var(--ink-2)">Eufy P2 Pro</text>
+
+        <circle cx="360" cy="96" r="7" fill="var(--warn)"/>
+        <text x="360" y="117" text-anchor="middle" font-size="11.5" fill="var(--warn)">Garmin S2 *</text>
+
+        <circle cx="520" cy="96" r="7" fill="var(--ink-3)"/>
+        <text x="520" y="117" text-anchor="middle" font-size="11.5" fill="var(--ink-2)">Body Comp</text>
+
+        <circle cx="676" cy="96" r="7" fill="var(--ink-3)"/>
+        <text x="676" y="117" text-anchor="middle" font-size="11.5" fill="var(--ink-2)">Body Scan</text>
+      </g>
+
+      <!-- Bluetooth: дёшево, но взвешивание надо не забыть донести до телефона -->
+      <g>
+        <circle cx="52" cy="180" r="8" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>
+        <text x="68" y="184" font-size="11.5" fill="var(--ink)" font-weight="600">Mi Scale 2</text>
+        <circle cx="88" cy="206" r="7" fill="var(--ink-3)"/>
+        <text x="102" y="210" font-size="11.5" fill="var(--ink-2)">Xiaomi S400</text>
+      </g>
+
+      <text x="28" y="240" font-size="10.5" fill="var(--ink-3)">* по доле жира в Apple Health есть давние жалобы — проверить перед покупкой</text>
+
+      <line x1="40" y1="258" x2="700" y2="258" stroke="var(--line)" stroke-width="1.5"/>
+      <g font-size="11" fill="var(--ink-3)" text-anchor="middle">
+        <text x="52" y="278">20 €</text>
+        <text x="196" y="278">60 €</text>
+        <text x="360" y="278">120 €</text>
+        <text x="520" y="278">200 €</text>
+        <text x="676" y="278">400 €</text>
+      </g>
+      <text x="600" y="296" font-size="11" font-family="monospace" fill="var(--ink-3)" letter-spacing="1">ЦЕНА →</text>
+    </g>
+  </svg>
+  <figcaption>
+    По вертикали — не точность, а надёжность попадания данных в Apple Health. Точность
+    по вертикали отложить нельзя: в пределах этого списка она у всех примерно одинаково
+    посредственная, и деньги покупают удобство, а не правду о вашем жире.
+  </figcaption>
+</figure>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<h2>7. Что это значит для вашего сервиса</h2>
+
+<p>
+  Сервис берёт долю жира из YAZIO, а если там нет — из Apple Health, и считает из неё
+  безжировую массу и энергодоступность. Значит:
+</p>
+
+<ul>
+  <li>
+    <strong>Абсолютное значение доли жира подставлять в расчёт можно, но с оговоркой.</strong>
+    Систематическое смещение в 3–5 п.п. переносится на безжировую массу почти целиком:
+    при 70 кг ошибка в 4 п.п. — это 2,8 кг «мышц», которых нет. Энергодоступность
+    (ккал на кг БЖМ) сдвинется в ту же сторону примерно на 5–8 %.
+  </li>
+  <li>
+    <strong>Порог энергодоступности в 30 ккал/кг БЖМ стоит считать мягким.</strong> Если весы
+    занижают жир, БЖМ выходит завышенной, и энергодоступность — заниженной: сервис будет
+    ругаться чаще, чем следует. Если завышают — наоборот, промолчит там, где стоило сказать.
+  </li>
+  <li>
+    <strong>Тренд доли жира — то, чему верить можно.</strong> Именно на изменении приборы
+    показали SEE 1,7–2,6 п.п. и 60 % попаданий в ±1 п.п. <a href="#s2">[2]</a>.
+  </li>
+  <li>
+    <strong>Пропущенные дни хуже неточности.</strong> Из-за Bluetooth-привязки взвешивания
+    выпадают, а на выпавших днях сервису нечего усреднять. Wi-Fi-весы решают именно эту
+    задачу — и это единственная задача, которую доплата решает наверняка.
+  </li>
+</ul>
+
+<h3>Протокол, который даёт максимум из имеющегося</h3>
+
+<ol>
+  <li>Взвешиваться каждое утро, сразу после туалета, до еды и питья, без одежды.</li>
+  <li>Босиком, на сухих ступнях: сухая кожа завышает сопротивление, а значит и жир.</li>
+  <li>Ставить весы на твёрдый пол. Ковёр ломает работу тензодатчиков.</li>
+  <li>Смотреть не на день, а на скользящее среднее за 7–14 дней.</li>
+  <li>Не сравнивать своё число с чужим и с DEXA: сравнивать своё с собой месяц назад.</li>
+</ol>
+
+<div class="note">
+  <p class="note__title">Проверка за ноль евро</p>
+  <p>
+    Прежде чем менять весы, стоит убедиться, что нынешние вообще шумят. Взвесьтесь пять раз
+    подряд, сходя с платформы между замерами. Разброс доли жира в пределах 0,5 п.п. означает,
+    что прибор стабилен (или сглаживает — см. врезку выше), разброс в 2–3 п.п. — что верить
+    единичному замеру нельзя вовсе.
+  </p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<h2>8. Итог по деньгам</h2>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Если вы хотите…</th><th>Решение</th><th class="num">Цена</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Точнее знать долю жира</td>
+      <td>Никакие бытовые весы этого не дадут. Разовый DEXA или InBody в клинике —
+          и то как точка отсчёта, а не как привычка</td>
+      <td class="num">—</td>
+    </tr>
+    <tr class="row-hi">
+      <td>Перестать открывать приложение</td>
+      <td><strong>Withings Body Smart</strong> — Wi-Fi, родная запись в Apple Health,
+          многочастотный биоимпеданс</td>
+      <td class="num">79,90 €</td>
+    </tr>
+    <tr>
+      <td>То же самое, но дешевле</td>
+      <td>Eufy Smart Scale P2 Pro — Wi-Fi и Apple Health за меньшие деньги,
+          приложение слабее</td>
+      <td class="num">≈ 60 €</td>
+    </tr>
+    <tr>
+      <td>Остаться в бюджете</td>
+      <td>Xiaomi S400 — двухчастотный вместо одночастотного, батарея на полгода</td>
+      <td class="num">29,99 €</td>
+    </tr>
+    <tr>
+      <td>Ничего не тратить</td>
+      <td>Оставить Mi Scale 2, добавить SmartScaleConnect для выгрузки
+          и мерить по протоколу выше</td>
+      <td class="num">0 €</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<h2>Источники</h2>
+
+<ol class="sources">
+  <li id="s1">
+    Frija-Masson J, Mullaert J, Vidal-Petiot E, et al. <strong>Accuracy of Smart Scales on Weight
+    and Body Composition: Observational Study.</strong> <em>JMIR Mhealth Uhealth</em>. 2021;9(4):e22487.
+    <span class="when">30 апреля 2021</span> —
+    <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8122302/">pmc.ncbi.nlm.nih.gov/articles/PMC8122302</a>.
+    Три умных весов против DEXA, n = 48–53. Вес: медианная ошибка 0–0,3 кг. Жировая масса:
+    −2,2, −3,7, −4,4 кг.
+  </li>
+  <li id="s2">
+    Siedler MR, et al. <strong>Assessing the reliability and cross-sectional and longitudinal
+    validity of fifteen bioelectrical impedance analysis devices.</strong>
+    <em>British Journal of Nutrition</em>. 2023;130(5):827–840. <span class="when">2023</span> —
+    <a href="https://www.cambridge.org/core/journals/british-journal-of-nutrition/article/assessing-the-reliability-and-crosssectional-and-longitudinal-validity-of-fifteen-bioelectrical-impedance-analysis-devices/EC129A8C9BE88D77DE09A7B8DF400936">cambridge.org</a>. <!-- scan-secrets: allow — шестнадцатеричная строка в ссылке это открытый идентификатор статьи в Cambridge Core, а не ключ -->
+    Главный источник этого разбора: 15 приборов ($24–349) против 4C-модели, n = 73.
+  </li>
+  <li id="s3">
+    Tinsley G. (пересказ работы [2]) <strong>About Half of the Body Composition Scales on the
+    Market Provide Unreliable Body Composition Readings.</strong> —
+    <a href="https://grundvilk.substack.com/p/about-half-of-the-body-composition">grundvilk.substack.com</a>.
+    Разбор автором исследования; отсюда данные про края распределения и про Withings Body Cardio.
+    <span class="src">Пересказ, не первоисточник.</span>
+  </li>
+  <li id="s4">
+    <strong>Mi Body Composition Scale 2 — Specs.</strong> Xiaomi —
+    <a href="https://www.mi.com/global/product/mi-body-composition-scale-2/specs/">mi.com</a>.
+    Диапазон 100 г — 150 кг, шаг 50 г, Bluetooth 5.0, 13 показателей, 4 × AAA.
+  </li>
+  <li id="s5">
+    <strong>Xiaomi Mi Body Composition Scale 2 Review.</strong> Tech Advisor.
+    <span class="when">9 декабря 2021</span> —
+    <a href="https://www.techadvisor.com/article/722849/xiaomi-mi-body-composition-scale-2-review.html">techadvisor.com</a>.
+    £29,99, 13 показателей, 16 профилей, только Bluetooth, «пара попыток на калибровку».
+  </li>
+  <li id="s6">
+    <strong>Xiaomi Body Composition Scale S400 — продукт и FAQ по синхронизации с Apple Health.</strong>
+    Xiaomi —
+    <a href="https://www.mi.com/global/product/xiaomi-body-composition-scale-s400/">mi.com/product</a>,
+    <a href="https://www.mi.com/global/support/faq/details/KA-235575/">FAQ KA-235575</a>.
+    Заявленная корреляция ≥ 0,93 с DEXA (отчёт BSU20220389, Пекинский спортивный университет);
+    в Apple Health уходят вес, доля жира, рост, индекс жира.
+    <span class="src">Заявление производителя.</span>
+  </li>
+  <li id="s7">
+    <strong>Zepp Life — сторонние интеграции; поддержка Xiaomi по весам.</strong> —
+    <a href="https://zepplife.net/third-party-integrations/">zepplife.net</a>,
+    <a href="https://www.mi.com/global/support/faq/details/KA-492795/">mi.com FAQ KA-492795</a>.
+    Mi Scale 2 работает только с Zepp Life; в Apple Health пишутся вес, доля жира,
+    безжировая масса, ИМТ.
+  </li>
+  <li id="s8">
+    <strong>Xiaomi Body Composition Scale S400: Smart scale with 25 health indicators gets global
+    launch.</strong> Notebookcheck. <span class="when">27 марта 2024, обновлено 18 февраля 2026</span> —
+    <a href="https://www.notebookcheck.net/Xiaomi-Body-Composition-Scale-S400-Smart-scale-with-25-health-indicators-gets-global-launch.818881.0.html">notebookcheck.net</a>.
+    Двухчастотный биоимпеданс, 25 показателей, 0,1–150 кг, шаг 0,1 кг, батарея 180 дней, до 36 профилей.
+  </li>
+  <li id="s9">
+    <strong>Xiaomi launches new body fat scale globally with display and long battery life</strong>
+    (S400 Pro). Notebookcheck. <span class="when">2 июля 2026</span> —
+    <a href="https://www.notebookcheck.net/Xiaomi-launches-new-body-fat-scale-globally-with-display-and-long-battery-life.1333156.0.html">notebookcheck.net</a>.
+    Экран, BT 5.1, электроды из оксида индия-олова; в ЕС у ритейлеров ещё нет.
+    Там же — оговорка про ограничения биоимпеданса без ручных электродов.
+  </li>
+  <li id="s10">
+    <strong>Withings Body Smart: обзоры и характеристики.</strong>
+    <a href="https://cybernews.com/health-tech/withings-body-smart-vs-body-comp/">cybernews.com</a>,
+    цена в Финляндии — <a href="https://hintaseuranta.fi/vaaat/withings-body-smart-wbs13-alyvaaka/12779889">hintaseuranta.fi</a>.
+    Многочастотный биоимпеданс, Wi-Fi/Bluetooth, шаг 0,1 кг, режимы спортсмена и беременности,
+    Apple Health / Google Fit. От 79,90 €.
+  </li>
+  <li id="s11">
+    <strong>Eufy Smart Scale P2 Pro / P3.</strong>
+    <a href="https://www.notebookcheck.net/Eufy-Smart-Scale-P2-Pro-New-smart-scale-launches-with-Apple-Health-Google-Fit-and-Fitbit-support.612224.0.html">notebookcheck.net</a>,
+    <a href="https://www.eufy.com/eu-en/products/t9150111">eufy.com/eu-en</a>,
+    <a href="https://www.tomsguide.com/wellness/fitness/eufy-smart-scale-p3-review">Tom's Guide</a>.
+    16 показателей, Wi-Fi, Apple Health / Google Fit / Fitbit; P2 Pro в Германии ≈ 60 €.
+  </li>
+  <li id="s12">
+    <strong>Why does my body fat percent fluctuate?</strong> Поддержка Tanita —
+    <a href="https://support.tanita.eu/support/solutions/articles/60000610071-why-does-my-body-fat-percent-fluctuate-">support.tanita.eu</a>.
+    Колебания до 10 % от гидратации; при обезвоживании прибор показывает больше жира.
+  </li>
+  <li id="s13">
+    <strong>We tested 14 models to find the best body composition scales for 2026.</strong>
+    Yahoo Health. <span class="when">31 июля 2026</span> —
+    <a href="https://health.yahoo.com/your-body/weight-management/article/best-body-composition-scales-194358631.html">health.yahoo.com</a>.
+    Четыре недели тестов; ошибка порядка ±10–12 % даже в лаборатории; смысл — в тренде.
+  </li>
+  <li id="s14">
+    <strong>Index Smart Scale data not syncing to Apple Health (except Weight).</strong>
+    Официальный форум Garmin. <span class="when">2018</span> —
+    <a href="https://forums.garmin.com/sports-fitness/sports-fitness/f/index-smart-scale/149776/index-smart-scale-data-not-syncing-to-apple-health-except-weight">forums.garmin.com</a>.
+    Вес и ИМТ доезжают, доля жира — нет. <span class="src">Старая ветка; сегодняшнее состояние
+    не подтверждено.</span>
+  </li>
+  <li id="s15">
+    <strong>AlexxIT/SmartScaleConnect</strong> — открытый инструмент переноса данных умных весов
+    между экосистемами —
+    <a href="https://github.com/AlexxIT/SmartScaleConnect">github.com/AlexxIT/SmartScaleConnect</a>.
+  </li>
+  <li id="s16">
+    <strong>Renpho EU — умные весы.</strong> —
+    <a href="https://renpho.eu/collections/smart-body-scale">renpho.eu</a>.
+    13 показателей, USB-C, Apple Health / MyFitnessPal / Samsung Health.
+    <span class="src">Точная цена в евро на дату разбора не подтверждена.</span>
+  </li>
+  <li id="s17">
+    <strong>Garmin Index S2 — цены в Финляндии.</strong>
+    <a href="https://www.gigantti.fi/product/terveys-ja-hyvinvointi/terveyden-seuranta-ja-hoito/henkilovaaka/garmin-index-s2-wi-fi-smart-henkilovaaka-0100229412-musta/228292">Gigantti 119 €</a>,
+    <a href="https://www.verkkokauppa.com/fi/product/710474/Garmin-Index-S2-alyvaaka-musta">Verkkokauppa 149,99 €</a>,
+    <a href="https://hintaseuranta.fi/vaaat/garmin-index-s2-wi-fi-smart-kehoanalyysivaaka/9264884">hintaseuranta.fi</a>.
+  </li>
+</ol>
+
+<p class="src" style="margin-top:2.5rem">
+  Цены проверены 30 августа 2026 и меняются. Всё, что помечено как заявление производителя
+  или как пересказ, не является независимо подтверждённым — это отмечено намеренно, чтобы
+  разбор можно было перепроверить, а не только прочитать.
+</p>
+
+</div>
