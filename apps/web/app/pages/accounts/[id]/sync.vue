@@ -302,11 +302,17 @@ const lastHealth = computed(
  *
  * `confirm()` спрашивает «да или нет», а на такое действие «да» слишком легко
  * нажать: оно уносит годы выгруженного и не отменяется (D-065).
+ *
+ * У демо не уносит ничего: данные выдуманы, а собрать их заново — одно
+ * нажатие. Требовать за это набранное слово — не осторожность, а помеха
+ * (D-068), поэтому там хватает подтверждения.
  */
 const deleting = ref(false)
 const deleteWord = ref('')
 const deleteReady = computed(
-  () => deleteWord.value.trim().toLowerCase() === t('danger.word').toLowerCase(),
+  () =>
+    account.value?.isDemo === true ||
+    deleteWord.value.trim().toLowerCase() === t('danger.word').toLowerCase(),
 )
 
 const progressPercent = computed(() => {
@@ -766,21 +772,29 @@ const runChip = (status: string): string =>
 
     <!-- ── удаление ─────────────────────────────────────────────────────── -->
     <section class="card">
-      <h2><AppIcon name="trash" :size="16" /> {{ t('danger') }}</h2>
-      <p class="tiny muted">{{ t('danger.note') }}</p>
+      <h2>
+        <AppIcon name="trash" :size="16" />
+        {{ account.isDemo ? t('demo.delete') : t('danger') }}
+      </h2>
+      <p class="tiny muted">{{ account.isDemo ? t('demo.delete.note') : t('danger.note') }}</p>
       <button class="btn btn--danger btn--small" @click="((deleting = true), (deleteWord = ''))">
-        <AppIcon name="trash" :size="13" /> {{ t('danger.open') }}
+        <AppIcon name="trash" :size="13" />
+        {{ account.isDemo ? t('demo.delete') : t('danger.open') }}
       </button>
     </section>
 
     <!-- Набрать слово, а не нажать «да»: удаление уносит годы выгруженного -->
-    <div v-if="deleting" class="scrim" @click="deleting = false" />
+    <div v-if="deleting" class="modal-scrim" @click="deleting = false" />
     <div v-if="deleting" class="modal" role="dialog" aria-modal="true">
       <h3 style="margin-top: 0">
-        {{ t('danger.title', { name: account.label || account.email }) }}
+        {{
+          account.isDemo
+            ? t('demo.delete.title')
+            : t('danger.title', { name: account.label || account.email })
+        }}
       </h3>
-      <p class="tiny muted">{{ t('danger.note') }}</p>
-      <label class="field">
+      <p class="tiny muted">{{ account.isDemo ? t('demo.delete.note') : t('danger.note') }}</p>
+      <label v-if="!account.isDemo" class="field">
         <span>{{ t('danger.ask', { word: t('danger.word') }) }}</span>
         <input
           v-model="deleteWord"
@@ -873,23 +887,4 @@ h2 {
   color: var(--ink-2);
 }
 
-/*
- * Окно подтверждения удаления.
- *
- * Своё, а не `confirm()`: браузерное окно спрашивает «да или нет», а на такое
- * действие «да» слишком легко нажать. Здесь надо набрать слово.
- */
-.modal {
-  position: fixed;
-  z-index: 40;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(30rem, calc(100vw - 2rem));
-  padding: 1.1rem 1.2rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  box-shadow: 0 24px 60px rgb(0 0 0 / 25%);
-}
 </style>
