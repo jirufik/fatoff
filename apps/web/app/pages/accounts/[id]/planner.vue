@@ -1653,7 +1653,7 @@ h2 {
   position: fixed;
   inset: 0;
   z-index: 30;
-  background: color-mix(in oklab, var(--ink) 35%, transparent);
+  background: var(--scrim);
 }
 .swap {
   position: fixed;
