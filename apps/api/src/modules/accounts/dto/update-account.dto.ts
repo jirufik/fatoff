@@ -24,4 +24,10 @@ export class UpdateAccountDto {
   @IsOptional()
   @IsBoolean()
   syncEnabled?: boolean;
+
+  /** Время ежедневной синхронизации `ЧЧ:ММ`; пустая строка снимает его. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  syncDailyAt?: string | null;
 }

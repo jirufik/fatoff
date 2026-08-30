@@ -50,6 +50,16 @@ export class Account {
   @Property({ type: 'boolean' })
   syncEnabled: boolean = true;
 
+  /**
+   * Время ежедневной синхронизации, `ЧЧ:ММ`.
+   *
+   * Пусто — сама по себе синхронизация не запускается, только руками. Общего
+   * расписания на все аккаунты нет: у них разные хозяева и разные привычки
+   * (D-063). Устройство ровно то же, что у проверки папки Google Drive.
+   */
+  @Property({ type: 'string', length: 5, nullable: true })
+  syncDailyAt: string | null = null;
+
   @Property({ type: 'timestamptz', nullable: true })
   lastSyncAt: Date | null = null;
 

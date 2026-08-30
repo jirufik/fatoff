@@ -49,6 +49,11 @@ await page.waitForTimeout(400);
 
 // ── день целиком ────────────────────────────────────────────────────────────
 await page.goto(`${BASE}/accounts/${ACCOUNT}/journal`);
+await page.waitForSelector('.scope .pill', { timeout: 10_000 });
+// раскрывать надо день с едой: свежая выгрузка Apple Health добавляет сегодня,
+// а сегодня приёмов пищи может не быть вовсе — проверка ломалась на данных
+await page.locator('.scope .pill').nth(1).click();
+await page.waitForTimeout(1200);
 await page.waitForSelector('.day', { timeout: 10_000 });
 console.log('дней на странице:', await page.locator('.day').count());
 // навигация одна на все страницы аккаунта и стоит на одном месте
@@ -543,6 +548,64 @@ await page.waitForTimeout(700);
 const picked = await page.locator('.date__input').first().inputValue();
 if (!/^\d{2}\.\d{2}\.\d{4}$/.test(picked)) problems.push(`дата после выбора: «${picked}»`);
 await shot('calendar');
+
+// ── синхронизация и Google Drive: настройки аккаунта ────────────────────────
+// у каждого аккаунта своё время; общего расписания больше нет
+await page.goto(`${BASE}/accounts/${ACCOUNT}/sync`);
+await page.waitForSelector('.card', { timeout: 10_000 });
+await page.waitForTimeout(800);
+
+const dailyField = page.locator('input[placeholder="06:30"]').first();
+if ((await dailyField.count()) === 0) problems.push('нет поля времени синхронизации');
+
+/*
+ * Разделы страницы — по предмету, а не по механизму.
+ *
+ * Было наоборот: Apple Health жил в двух разделах (файл с диска и файл из
+ * Drive), а YAZIO — в трёх, вместе с расписанием среди токенов доступа.
+ * Проверка держит порядок: сперва YAZIO целиком, потом Apple Health с двумя
+ * источниками, потом аккаунт.
+ */
+/*
+ * Три раздела и ничего больше: YAZIO, Apple Health, Удаление.
+ *
+ * Разделы прирастали по одному, пока их не стало семь, и предмет размазался
+ * (D-065). Проверка держит и состав, и то, что подробности спрятаны.
+ */
+const sections = (await page.locator('section.card > h2').allInnerTexts()).map((s) => s.trim());
+const wanted = ['YAZIO — дневник питания', 'Apple Health', 'Удаление'];
+if (JSON.stringify(sections) !== JSON.stringify(wanted)) {
+  problems.push(`разделы синхронизации: ${sections.join(' | ')}`);
+}
+
+// сводка сверху отвечает на главный вопрос: свежие ли данные
+const summary = (await page.locator('.sum__when').allInnerTexts()).join(' / ');
+console.log('сводка:', summary.replace(/\s+/g, ' '));
+if (/ещё ни разу/.test(summary)) problems.push(`сводка не нашла прогонов: ${summary}`);
+
+// подробности спрятаны, но раскрываются
+if ((await page.locator('.more__body:visible').count()) !== 0) {
+  problems.push('подробности видны сразу, а должны быть под раскрытием');
+}
+await page.locator('.more > summary').first().click();
+await page.waitForTimeout(400);
+if ((await page.locator('.more__body:visible').count()) === 0) {
+  problems.push('раскрытие не открывается');
+}
+
+// удаление — со словом, а не с кнопкой «да»
+await page.locator('button:has-text("Удалить аккаунт")').click();
+await page.waitForTimeout(400);
+const kill = page.locator('.modal button:has-text("Удалить навсегда")');
+if ((await page.locator('.modal').count()) === 0) problems.push('окно удаления не открылось');
+if (!(await kill.isDisabled())) problems.push('удаление доступно без подтверждения словом');
+await page.locator('.modal input').fill('Удалить');
+await page.waitForTimeout(250);
+if (await kill.isDisabled()) problems.push('слово набрано, а удаление всё ещё запрещено');
+await page.locator('.modal button:has-text("Отмена")').click();
+await page.waitForTimeout(300);
+
+await shot('sync-settings');
 
 // ── два языка ───────────────────────────────────────────────────────────────
 await page.goto(`${BASE}/accounts/${ACCOUNT}/planner`);

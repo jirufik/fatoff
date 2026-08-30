@@ -5,6 +5,7 @@ import type { AccountDto } from '@fatoff/contracts';
 
 import { CryptoService } from '../../common/crypto.service';
 import { dayOf } from '../../common/date.util';
+import { isDailyAt } from '../../common/daily-at';
 import { Account } from '../../database/entities';
 import type { YazioTokens } from '../yazio/yazio-client';
 import { YazioService } from '../yazio/yazio.service';
@@ -77,6 +78,7 @@ export class AccountsService {
       registrationDate: user.registration_date ? dayOf(user.registration_date) : null,
       profile: user as unknown as Record<string, unknown>,
       syncEnabled: true,
+      syncDailyAt: null,
       driveEnabled: false,
       lastSyncStatus: 'never',
       createdAt: new Date(),
@@ -92,6 +94,16 @@ export class AccountsService {
 
     if (dto.label !== undefined) account.label = dto.label?.trim() || null;
     if (dto.syncEnabled !== undefined) account.syncEnabled = dto.syncEnabled;
+
+    if (dto.syncDailyAt !== undefined) {
+      const at = dto.syncDailyAt?.trim() || null;
+      // проверяем сразу: узнать, что время не то, через сутки на расписании —
+      // худший из возможных моментов
+      if (at && !isDailyAt(at)) {
+        throw new Error('Время синхронизации задаётся как ЧЧ:ММ, например 06:30');
+      }
+      account.syncDailyAt = at;
+    }
 
     // и пароль, и токен проверяются до записи: иначе можно сохранить неработающий
     if (dto.password) {
@@ -152,6 +164,7 @@ export class AccountsService {
       authMethod: account.passwordEnc ? 'password' : 'token',
       registrationDate: account.registrationDate,
       syncEnabled: account.syncEnabled,
+      syncDailyAt: account.syncDailyAt,
       lastSyncAt: account.lastSyncAt?.toISOString() ?? null,
       lastSyncStatus: account.lastSyncStatus,
       storedDays: stored?.days ?? 0,
