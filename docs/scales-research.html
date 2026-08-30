@@ -313,9 +313,20 @@
     <div class="verdict__row">
       <div class="verdict__key">Слабое место</div>
       <p class="verdict__val">
-        Не точность, а <strong>привязка к телефону</strong>: только Bluetooth, только приложение
-        Zepp Life, данные уезжают в Apple Health лишь когда приложение открыто рядом.
-        Пропущенный день — дырка в тренде.
+        Не точность и не пропущенные дни — весы запоминают около 160 замеров и отдают их,
+        когда вы откроете приложение. Слабое место — <strong>зависимость от Zepp Life</strong>:
+        это приложение принадлежит Zepp Health, а не Xiaomi, и новые весы Xiaomi на него уже
+        не заводит. Плюс задержка: число появляется в Apple Health не в момент взвешивания.
+      </p>
+    </div>
+    <div class="verdict__row">
+      <div class="verdict__key">S400 — лучше?</div>
+      <p class="verdict__val">
+        <strong>Да, но обвязкой, а не точностью.</strong> Две частоты вместо одной, батарея
+        на полгода вместо батареек, своё приложение Xiaomi, официальные 29,99 € в ЕС.
+        При этом шаг шкалы вдвое грубее (100 г против 50), а в Apple Health Mi Home отдаёт
+        <strong>только главный аккаунт</strong> — если долю жира отслеживают двое, это шаг назад.
+        Покупать новые — берите S400. Менять работающие Mi Scale 2 — незачем.
       </p>
     </div>
     <div class="verdict__row">
@@ -343,8 +354,9 @@
   <p style="margin-bottom:0">
     <strong>Короткий ответ.</strong> Mi Scale 2 не устарела как весы и не была точна как жироанализатор
     ни вчера, ни сегодня — этого не умеет ни один прибор её класса, и дорогие тоже.
-    Менять её имеет смысл, только если раздражает ритуал «открой приложение, чтобы вес записался».
-    Тогда — Withings Body Smart за 80 € или Eufy P2 Pro за 60 €.
+    Менять её имеет смысл, только если хочется, чтобы вес попадал в Apple Health сам,
+    без открывания приложения, — тогда Withings Body Smart за 80 € или Eufy P2 Pro за 60 €.
+    Или если беспокоит, что Zepp Life однажды перестанут поддерживать.
   </p>
 </section>
 
@@ -366,7 +378,7 @@
     <tr><td>Диапазон</td><td class="mono">100 г — 150 кг</td><td>Обычному человеку хватает</td></tr>
     <tr><td>Шаг шкалы</td><td class="mono">50 г</td><td>Мельче, чем у большинства новых моделей с шагом 100 г</td></tr>
     <tr><td>Метод</td><td>Биоимпеданс, нога-нога, 4 электрода</td><td>Ток идёт по ногам, туловище почти минует</td></tr>
-    <tr><td>Связь</td><td>Bluetooth 5.0</td><td>Нужен телефон рядом с открытым приложением</td></tr>
+    <tr><td>Связь</td><td>Bluetooth 5.0</td><td>Взвеситься можно без телефона: весы помнят ≈160 замеров <a href="#s20">[20]</a></td></tr>
     <tr><td>Приложение</td><td>Zepp Life (бывш. Mi Fit)</td><td>Mi Fitness весы не поддерживает <a href="#s7">[7]</a></td></tr>
     <tr><td>Питание</td><td>4 × AAA</td><td>Не аккумулятор</td></tr>
     <tr><td>Профилей</td><td>до 16</td><td>Различает по весу; при близком весе путается</td></tr>
@@ -692,7 +704,7 @@
     <strong>Tech Advisor</strong> (декабрь 2021, £29,99): весы точны при сверке с другими весами,
     но «требуют пары попыток, чтобы откалиброваться» — первые замеры бывают мусорными.
     Рецензент прямо говорит, что для отслеживания прогресса важнее <em>постоянство</em>, а не
-    абсолютная точность. Минусы: батарейки вместо аккумулятора, только Bluetooth, на экране
+    абсолютная точность. Минусы: батарейки вместо аккумулятора, на экране
     показывается лишь вес <a href="#s5">[5]</a>.
   </li>
   <li>
@@ -718,62 +730,209 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════════════ -->
-<h2>5. Куда уходят данные — и почему это важнее точности</h2>
+<h2>5. Как данные доезжают до Apple Health</h2>
 
 <p>
   Ваш сервис читает долю жира из Apple Health и через неё считает безжировую массу,
-  а из неё — энергодоступность. То есть цепочка полезна ровно настолько, насколько
-  надёжно число доезжает до Apple Health. Здесь между моделями разница <em>больше</em>,
-  чем в точности.
+  а из неё — энергодоступность. Значит, важно не только что весы намеряли, но и дойдёт ли
+  это число до Apple Health и когда. Путь у всех одинаковый по форме и разный по деталям,
+  и детали решают.
 </p>
+
+<figure>
+  <svg viewBox="0 0 720 330" role="img" aria-label="Схема пути данных от весов до сервиса">
+    <defs>
+      <marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+        <path d="M0,0 L7,3.2 L0,6.4 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <g font-family="system-ui, sans-serif" font-size="12">
+      <!-- заголовки колонок -->
+      <g font-size="10.5" font-family="monospace" fill="var(--ink-3)" letter-spacing="1">
+        <text x="14" y="18">ВЕСЫ</text>
+        <text x="196" y="18">КАК ДОЕЗЖАЕТ</text>
+        <text x="392" y="18">ПРИЛОЖЕНИЕ</text>
+        <text x="576" y="18">APPLE HEALTH</text>
+      </g>
+
+      <!-- ── Mi Scale 2 ───────────────────────────────────────────────── -->
+      <rect x="14" y="30" width="150" height="58" rx="9" fill="var(--accent-bg)" stroke="var(--accent)"/>
+      <text x="28" y="52" font-weight="600" fill="var(--accent-ink)">Mi Scale 2</text>
+      <text x="28" y="70" font-size="10.5" fill="var(--accent-ink)">буфер на 160 замеров</text>
+      <text x="28" y="83" font-size="10.5" fill="var(--accent-ink)">≈ 20 дней без телефона</text>
+
+      <g color="var(--ink-3)">
+        <line x1="170" y1="59" x2="380" y2="59" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar2)"/>
+      </g>
+      <text x="196" y="52" font-size="10.5" fill="var(--ink-2)">Bluetooth, когда</text>
+      <text x="196" y="66" font-size="10.5" fill="var(--ink-2)">откроете приложение</text>
+
+      <rect x="386" y="30" width="150" height="58" rx="9" fill="var(--sunk)" stroke="var(--line)"/>
+      <text x="400" y="52" font-weight="600" fill="var(--ink)">Zepp Life</text>
+      <text x="400" y="70" font-size="10.5" fill="var(--ink-3)">приложение не Xiaomi,</text>
+      <text x="400" y="83" font-size="10.5" fill="var(--ink-3)">а Zepp Health</text>
+
+      <g color="var(--ink-3)">
+        <line x1="542" y1="59" x2="570" y2="59" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar2)"/>
+      </g>
+
+      <!-- ── S400 ─────────────────────────────────────────────────────── -->
+      <rect x="14" y="104" width="150" height="58" rx="9" fill="var(--surface)" stroke="var(--line)"/>
+      <text x="28" y="126" font-weight="600" fill="var(--ink)">Xiaomi S400</text>
+      <text x="28" y="144" font-size="10.5" fill="var(--ink-3)">Bluetooth, а со шлюзом</text>
+      <text x="28" y="157" font-size="10.5" fill="var(--ink-3)">Xiaomi — и через облако</text>
+
+      <g color="var(--ink-3)">
+        <line x1="170" y1="133" x2="380" y2="133" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar2)"/>
+      </g>
+      <text x="196" y="126" font-size="10.5" fill="var(--ink-2)">Bluetooth или шлюз</text>
+
+      <rect x="386" y="104" width="150" height="58" rx="9" fill="var(--sunk)" stroke="var(--line)"/>
+      <text x="400" y="126" font-weight="600" fill="var(--ink)">Mi Home</text>
+      <text x="400" y="144" font-size="10.5" fill="var(--ink-3)">своё приложение Xiaomi,</text>
+      <text x="400" y="157" font-size="10.5" fill="var(--ink-3)">Zepp Life не подходит</text>
+
+      <g color="var(--ink-3)">
+        <line x1="542" y1="133" x2="570" y2="133" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar2)"/>
+      </g>
+
+      <!-- ── Wi-Fi весы ───────────────────────────────────────────────── -->
+      <rect x="14" y="178" width="150" height="58" rx="9" fill="var(--good-bg)" stroke="var(--good)"/>
+      <text x="28" y="200" font-weight="600" fill="var(--good)">Withings / Eufy</text>
+      <text x="28" y="218" font-size="10.5" fill="var(--good)">Wi-Fi прямо с весов,</text>
+      <text x="28" y="231" font-size="10.5" fill="var(--good)">телефон не нужен вовсе</text>
+
+      <g color="var(--ink-3)">
+        <line x1="170" y1="207" x2="380" y2="207" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar2)"/>
+      </g>
+      <text x="196" y="200" font-size="10.5" fill="var(--ink-2)">сразу, через облако</text>
+
+      <rect x="386" y="178" width="150" height="58" rx="9" fill="var(--sunk)" stroke="var(--line)"/>
+      <text x="400" y="200" font-weight="600" fill="var(--ink)">Health Mate</text>
+      <text x="400" y="214" font-weight="600" fill="var(--ink)">/ EufyLife</text>
+      <text x="400" y="231" font-size="10.5" fill="var(--ink-3)">работает в фоне</text>
+
+      <g color="var(--ink-3)">
+        <line x1="542" y1="207" x2="570" y2="207" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar2)"/>
+      </g>
+
+      <!-- ── Apple Health ─────────────────────────────────────────────── -->
+      <rect x="576" y="30" width="130" height="206" rx="9" fill="var(--accent-bg)" stroke="var(--accent)"/>
+      <text x="641" y="118" text-anchor="middle" font-weight="600" fill="var(--accent-ink)">Apple Health</text>
+      <text x="641" y="138" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">HealthKit</text>
+      <text x="641" y="160" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">↓</text>
+      <text x="641" y="180" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">выгрузка</text>
+      <text x="641" y="194" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">→ ваш сервис</text>
+
+      <!-- где рвётся -->
+      <line x1="14" y1="256" x2="706" y2="256" stroke="var(--line)"/>
+      <text x="14" y="278" font-size="11" font-family="monospace" fill="var(--bad)" letter-spacing="1">ГДЕ РВЁТСЯ</text>
+      <text x="14" y="298" font-size="11.5" fill="var(--ink-2)">1 · Разрешения в «Здоровье» выключены — приложение молча ничего не пишет</text>
+      <text x="14" y="316" font-size="11.5" fill="var(--ink-2)">2 · У Mi Home в Apple Health уходит только главный аккаунт, остальные члены семьи — нет</text>
+    </g>
+  </svg>
+  <figcaption>
+    Точность решается на первом шаге, доходимость — на трёх остальных. У Bluetooth-весов
+    третий шаг требует, чтобы вы иногда открывали приложение; у Wi-Fi-весов его нет.
+  </figcaption>
+</figure>
+
+<h3>Что именно пишется</h3>
 
 <div class="table-wrap">
 <table>
   <thead>
     <tr>
-      <th>Модель</th><th>Связь</th><th>Приложение</th>
-      <th>Что попадает в Apple Health</th><th>Ритуал</th>
+      <th>Модель</th><th>Приложение</th>
+      <th>Что уходит в Apple Health</th><th>Когда</th>
     </tr>
   </thead>
   <tbody>
     <tr class="row-hi">
       <td><strong>Mi Scale 2</strong></td>
-      <td>Bluetooth</td>
-      <td>Zepp Life</td>
-      <td>Вес, доля жира, безжировая масса, ИМТ <a href="#s7">[7]</a></td>
-      <td><span class="chip chip--warn">телефон рядом</span></td>
+      <td>Zepp Life<br><span class="src">только оно <a href="#s7">[7]</a></span></td>
+      <td>Вес, ИМТ, доля жира<br>
+        <span class="src">официального списка Xiaomi нет; долю жира подтверждают
+        пользователи <a href="#s18">[18]</a>, и они же жалуются, что она пропадает</span></td>
+      <td><span class="chip chip--warn">при открытии приложения</span></td>
     </tr>
     <tr>
-      <td>Xiaomi S400</td>
-      <td>Bluetooth</td>
-      <td>Mi Home</td>
-      <td>Вес, доля жира, рост, индекс жира <a href="#s6">[6]</a></td>
-      <td><span class="chip chip--warn">телефон рядом</span></td>
+      <td><strong>Xiaomi S400</strong></td>
+      <td>Mi Home<br><span class="src">Mi Fitness и Zepp Life не подходят <a href="#s19">[19]</a></span></td>
+      <td>Вес, доля жира, рост, индекс жира<br>
+        <span class="src">официальный список Xiaomi <a href="#s6">[6]</a></span></td>
+      <td><span class="chip chip--warn">при открытии приложения<br>или через шлюз</span></td>
     </tr>
     <tr>
       <td>Eufy P2 Pro / P3</td>
-      <td>Wi-Fi</td>
       <td>EufyLife</td>
       <td>Вес и состав тела <a href="#s11">[11]</a></td>
-      <td><span class="chip chip--good">само</span></td>
+      <td><span class="chip chip--good">сразу</span></td>
     </tr>
     <tr>
       <td>Withings Body Smart</td>
-      <td>Wi-Fi + BT</td>
-      <td>Withings Health Mate</td>
+      <td>Health Mate</td>
       <td>Вес и состав тела <a href="#s10">[10]</a></td>
-      <td><span class="chip chip--good">само</span></td>
+      <td><span class="chip chip--good">сразу</span></td>
     </tr>
     <tr>
       <td>Garmin Index S2</td>
-      <td>Wi-Fi</td>
       <td>Garmin Connect</td>
       <td>Вес и ИМТ надёжно; по доле жира — давние жалобы <a href="#s14">[14]</a></td>
-      <td><span class="chip chip--good">само</span></td>
+      <td><span class="chip chip--good">сразу</span></td>
     </tr>
   </tbody>
 </table>
 </div>
+
+<div class="note note--warn">
+  <p class="note__title">Поправка к тому, что я написал сначала</p>
+  <p>
+    В первой версии этого разбора было сказано, что при Bluetooth «пропущенный день —
+    дырка в тренде». <strong>Это неверно.</strong> Mi Scale 2 умеет офлайн-взвешивание:
+    встаёте без телефона, весы запоминают замер и отдают его, когда вы в следующий раз
+    откроете Zepp Life. Память — около 160 замеров, то есть примерно двадцать дней при
+    трёх взвешиваниях в сутки <a href="#s20">[20]</a>. Профиль при этом определяется
+    по весу: после первого взвешивания с приложением весы сами понимают, кто встал.
+  </p>
+  <p>
+    Значит, Bluetooth стоит не пропущенных дней, а <em>задержки</em>: число появится
+    в Apple Health не в момент взвешивания, а когда вы откроете приложение. Для
+    недельного скользящего среднего это ничего не меняет.
+  </p>
+</div>
+
+<h3>Две вещи, которые ломают цепочку по-настоящему</h3>
+
+<ol>
+  <li>
+    <strong>Разрешения в «Здоровье» выключены.</strong> Xiaomi прямым текстом пишет:
+    если в <em>Настройки → Здоровье → Доступ к данным → Mi Home</em> не включить вес,
+    долю жира, рост и индекс жира, данные не синхронизируются вовсе <a href="#s6">[6]</a>.
+    Приложение при этом не ругается — просто ничего не пишет.
+  </li>
+  <li>
+    <strong>Только главный аккаунт.</strong> У Mi Home в Apple Health уходят данные
+    <em>только текущего главного аккаунта</em> <a href="#s6">[6]</a>. Весы различают
+    до 36 человек, но в Apple Health попадёт один. Для семьи, где двое следят за составом
+    тела, это существеннее любой разницы в частотах биоимпеданса.
+  </li>
+</ol>
+
+<p>
+  И ещё одно, что стоит знать про Mi Scale 2: <strong>Zepp Life — приложение не Xiaomi,
+  а Zepp Health</strong> (бывший Huami, теперь отдельная компания со своими часами Amazfit).
+  Xiaomi свои новые весы на него не заводит: S400 работает только с Mi Home, а Mi Fitness
+  весы не поддерживает вовсе <a href="#s19">[19]</a>. То есть Mi Scale 2 осталась на приложении,
+  которое её производителю больше не принадлежит. Пока всё работает, но это не то место,
+  где стоит рассчитывать на долгую поддержку.
+</p>
+
+<p>
+  Если единственная претензия — привязка к Zepp Life, есть <strong>SmartScaleConnect</strong>:
+  открытый инструмент, который читает весы Xiaomi напрямую и перекладывает данные между
+  экосистемами <a href="#s15">[15]</a>. Дешевле новых весов.
+</p>
 
 <div class="note note--warn">
   <p class="note__title">Про Garmin — честно</p>
@@ -785,14 +944,103 @@
   </p>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<h2>6. S400 — лучше или хуже?</h2>
+
 <p>
-  Отдельно стоит знать про <strong>SmartScaleConnect</strong> — открытый инструмент, который
-  вытаскивает данные с весов Xiaomi и перекладывает их между экосистемами <a href="#s15">[15]</a>.
-  Если единственная претензия к Mi Scale 2 — привязка к Zepp Life, это дешевле новых весов.
+  Короткий ответ: <strong>S400 лучше, но не там, где вы могли подумать.</strong> Она лучше
+  обвязкой — питанием, приложением, поддержкой; по тому, насколько верно она называет вашу
+  долю жира, разницы, которую можно доказать, нет. Ни для одной из двух моделей нет
+  независимой проверки против лабораторного эталона.
 </p>
 
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th></th><th>Mi Scale 2</th><th>Xiaomi S400</th><th>Кто лучше</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Цена</td>
+      <td class="mono">20–25 € <span class="src">AliExpress</span></td>
+      <td class="mono">29,99 € <span class="src">офиц. ЕС</span></td>
+      <td><span class="chip chip--mute">ничья</span> дешевле против гарантии</td>
+    </tr>
+    <tr>
+      <td>Шаг шкалы</td>
+      <td class="mono">50 г</td>
+      <td class="mono">100 г</td>
+      <td><span class="chip chip--good">Mi Scale 2</span></td>
+    </tr>
+    <tr>
+      <td>Биоимпеданс</td>
+      <td>одна частота</td>
+      <td>две частоты <a href="#s8">[8]</a></td>
+      <td><span class="chip chip--good">S400</span> в теории</td>
+    </tr>
+    <tr>
+      <td>Показателей</td>
+      <td class="mono">13</td>
+      <td class="mono">25</td>
+      <td><span class="chip chip--mute">ничья</span> измерений всё те же два</td>
+    </tr>
+    <tr>
+      <td>Питание</td>
+      <td>4 × AAA</td>
+      <td>батарея на 180 дней</td>
+      <td><span class="chip chip--good">S400</span></td>
+    </tr>
+    <tr>
+      <td>Профилей</td>
+      <td class="mono">16</td>
+      <td class="mono">36</td>
+      <td><span class="chip chip--good">S400</span></td>
+    </tr>
+    <tr>
+      <td>Приложение</td>
+      <td>Zepp Life — чужое для Xiaomi</td>
+      <td>Mi Home — своё <a href="#s19">[19]</a></td>
+      <td><span class="chip chip--good">S400</span></td>
+    </tr>
+    <tr>
+      <td>Apple Health</td>
+      <td>вес, ИМТ, доля жира;<br>официального списка нет</td>
+      <td>вес, доля жира, рост, индекс жира;<br><strong>только главный аккаунт</strong> <a href="#s6">[6]</a></td>
+      <td><span class="chip chip--warn">Mi Scale 2</span> если в семье двое</td>
+    </tr>
+    <tr>
+      <td>Синхронизация</td>
+      <td>Bluetooth, буфер 160 замеров</td>
+      <td>Bluetooth, а со шлюзом Xiaomi — через облако</td>
+      <td><span class="chip chip--good">S400</span> если шлюз есть</td>
+    </tr>
+    <tr>
+      <td>Проверка точности</td>
+      <td colspan="2">Независимой нет ни у той, ни у другой. У S400 есть заказное
+        испытание производителя <a href="#s6">[6]</a></td>
+      <td><span class="chip chip--mute">ничья</span></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note">
+  <p class="note__title">Вывод по S400</p>
+  <p>
+    <strong>Покупаете новые весы — берите S400.</strong> Двухчастотный биоимпеданс,
+    батарея на полгода, своё приложение Xiaomi и официальная цена в ЕС — за те же деньги
+    это просто более живой продукт.
+  </p>
+  <p>
+    <strong>Mi Scale 2 у вас уже есть — менять её на S400 незачем.</strong> Прибавка,
+    которую можно потрогать, — питание и приложение. Шаг шкалы при этом станет вдвое
+    грубее, а если долю жира в Apple Health отслеживают двое, S400 будет <em>хуже</em>:
+    Mi Home отдаёт наружу только главный аккаунт. За 30 € это не обмен, а размен.
+  </p>
+</div>
+
 <!-- ══════════════════════════════════════════════════════════════════════ -->
-<h2>6. Конкуренты: цены Финляндии и AliExpress</h2>
+<h2>7. Конкуренты: цены Финляндии и AliExpress</h2>
 
 <p>
   Первая группа — тот же ценовой диапазон, что и Mi Scale 2. Вторая — на шаг дороже,
@@ -940,7 +1188,7 @@
 </figure>
 
 <!-- ══════════════════════════════════════════════════════════════════════ -->
-<h2>7. Что это значит для вашего сервиса</h2>
+<h2>8. Что это значит для вашего сервиса</h2>
 
 <p>
   Сервис берёт долю жира из YAZIO, а если там нет — из Apple Health, и считает из неё
@@ -964,9 +1212,10 @@
     показали SEE 1,7–2,6 п.п. и 60 % попаданий в ±1 п.п. <a href="#s2">[2]</a>.
   </li>
   <li>
-    <strong>Пропущенные дни хуже неточности.</strong> Из-за Bluetooth-привязки взвешивания
-    выпадают, а на выпавших днях сервису нечего усреднять. Wi-Fi-весы решают именно эту
-    задачу — и это единственная задача, которую доплата решает наверняка.
+    <strong>Пропущенные дни хуже неточности — но Bluetooth их не создаёт.</strong> Весы
+    помнят замеры и отдают их позже <a href="#s20">[20]</a>, так что дырки в тренде берутся
+    не от связи, а от того, что человек не встал на весы. Wi-Fi покупает не сохранность
+    данных, а их своевременность и на одно приложение меньше.
   </li>
 </ul>
 
@@ -991,7 +1240,7 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════════════ -->
-<h2>8. Итог по деньгам</h2>
+<h2>9. Итог по деньгам</h2>
 
 <div class="table-wrap">
 <table>
@@ -1006,7 +1255,7 @@
       <td class="num">—</td>
     </tr>
     <tr class="row-hi">
-      <td>Перестать открывать приложение</td>
+      <td>Чтобы вес попадал в Apple Health сам</td>
       <td><strong>Withings Body Smart</strong> — Wi-Fi, родная запись в Apple Health,
           многочастотный биоимпеданс</td>
       <td class="num">79,90 €</td>
@@ -1019,7 +1268,8 @@
     </tr>
     <tr>
       <td>Остаться в бюджете</td>
-      <td>Xiaomi S400 — двухчастотный вместо одночастотного, батарея на полгода</td>
+      <td>Xiaomi S400 — но только если весов ещё нет: менять работающие Mi Scale 2
+          не на что (§&nbsp;6)</td>
       <td class="num">29,99 €</td>
     </tr>
     <tr>
@@ -1134,6 +1384,28 @@
     <strong>AlexxIT/SmartScaleConnect</strong> — открытый инструмент переноса данных умных весов
     между экосистемами —
     <a href="https://github.com/AlexxIT/SmartScaleConnect">github.com/AlexxIT/SmartScaleConnect</a>.
+  </li>
+  <li id="s18">
+    <strong>Is that possible to add data from Zepp Life to Apple Health?</strong>
+    Apple Community. <span class="when">5 июня 2023</span> —
+    <a href="https://discussions.apple.com/thread/254908193">discussions.apple.com</a>.
+    Пользователь перечисляет, что из Zepp Life доезжает: активная энергия и доля жира.
+    <span class="src">Свидетельство пользователя, не документация.</span>
+  </li>
+  <li id="s19">
+    <strong>How to bind the Xiaomi Body Composition Scale S400?</strong> и
+    <strong>Does the Mi Body Composition Scale 2 only connect to the Zepp Life APP?</strong>
+    Поддержка Xiaomi —
+    <a href="https://www.mi.com/global/support/faq/details/KA-235621/">KA-235621</a>,
+    <a href="https://www.mi.com/global/support/faq/details/KA-492795/">KA-492795</a>.
+    S400 работает только с Mi Home/Xiaomi Home, привязка к Mi Fitness не поддерживается;
+    Mi Scale 2 работает только с Zepp Life.
+  </li>
+  <li id="s20">
+    <strong>Mi Body Composition Scale 2 FAQ</strong> — офлайн-взвешивание. Поддержка Xiaomi —
+    <a href="https://www.mi.com/global/support/faq/details/KA-07495/">KA-07495</a>.
+    Встать на весы можно без приложения: замер запоминается и синхронизируется при следующем
+    открытии Zepp Life; память около 160 замеров, профиль определяется по весу.
   </li>
   <li id="s16">
     <strong>Renpho EU — умные весы.</strong> —
