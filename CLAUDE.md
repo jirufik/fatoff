@@ -138,7 +138,7 @@ ACCOUNT=<uuid> SHOTS=/tmp/shots pnpm --filter @fatoff/web run check:ui
 pnpm scan           # весь репозиторий на секреты и чужие данные
 pnpm scan:test      # тесты самой проверки
 
-pnpm db:up          # база прода, порт 5482
+pnpm db:up          # только база прода, порт 5482 (обычно не нужно: docker:up поднимает обе)
 pnpm docker:up      # выкатка прода (main): сборка образа и запуск на 4090
 pnpm docker:logs    # логи прода
 
