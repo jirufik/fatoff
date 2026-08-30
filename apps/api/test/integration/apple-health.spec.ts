@@ -45,6 +45,7 @@ describe('загрузка выгрузки Apple Health', () => {
       passwordEnc: crypto.encrypt('секрет'),
       registrationDate: '2024-03-01',
       profile: null,
+      isDemo: false,
       syncEnabled: true,
       driveEnabled: false,
       lastSyncStatus: 'never',

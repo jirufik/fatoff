@@ -11,7 +11,7 @@ import type {
 } from '@fatoff/contracts'
 
 const api = useApi()
-const { t, message } = useI18n()
+const { t, message, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id as string
@@ -260,6 +260,30 @@ async function removeAccount(): Promise<void> {
   }
 }
 
+/*
+ * Пересборка демо: история привязана к сегодняшней дате и со временем стареет.
+ *
+ * Это создание заново, а не дополнение: сюжет рассчитан на полгода до сегодня,
+ * и дописать к нему свежие дни, не разъехавшись с ним, нельзя (D-068). Прежнее
+ * демо уходит целиком, поэтому адрес аккаунта меняется.
+ */
+const rebuilding = ref(false)
+
+async function rebuildDemo(): Promise<void> {
+  rebuilding.value = true
+  error.value = ''
+  try {
+    const fresh = await api.post<AccountDto>('/demo', { locale: locale.value })
+    await router.push(`/accounts/${fresh.id}/sync`)
+    // адрес тот же по виду, но аккаунт другой: страницу надо перечитать
+    if (fresh.id === id) await loadAccount()
+  } catch (caught) {
+    error.value = errorMessage(caught)
+  } finally {
+    rebuilding.value = false
+  }
+}
+
 
 /**
  * Сводка раздела: когда в последний раз и что прибавилось.
@@ -306,13 +330,35 @@ const runChip = (status: string): string =>
 
 <template>
   <div v-if="account">
-    <PageHead :title="t('nav.sync')" :back="`/accounts/${id}`">{{ t('sync.lede') }}</PageHead>
+    <PageHead :title="t('nav.sync')" :back="`/accounts/${id}`">
+      {{ account.isDemo ? t('demo.sync.lede') : t('sync.lede') }}
+    </PageHead>
 
     <div v-if="error" class="alert alert--bad">{{ error }}</div>
     <div v-if="notice" class="alert alert--ok">{{ notice }}</div>
 
+    <!-- ── демо ─────────────────────────────────────────────────────────── -->
+    <!--
+      У демо синхронизировать нечего: ни учётных данных, ни папки. Показывать
+      ему пустые настройки YAZIO и Apple Health значило бы предлагать действие,
+      которое ничем не кончится (D-068).
+    -->
+    <section v-if="account.isDemo" class="card">
+      <h2><AppIcon name="gauge" :size="16" /> {{ t('demo.title') }}</h2>
+      <p class="sum__when">{{ t('demo.sync.what', { days: account.storedDays }) }}</p>
+      <p class="tiny muted">{{ t('demo.sync.note') }}</p>
+      <div class="row" style="gap: 0.4rem; margin-top: 0.8rem">
+        <button class="btn btn--primary" :disabled="rebuilding" @click="rebuildDemo">
+          <span v-if="rebuilding" class="spinner" />
+          <AppIcon v-else name="swap" :size="14" />
+          {{ t('demo.rebuild') }}
+        </button>
+      </div>
+      <p class="tiny muted" style="margin-top: 0.6rem">{{ t('demo.rebuild.note') }}</p>
+    </section>
+
     <!-- ── YAZIO ────────────────────────────────────────────────────────── -->
-    <section class="card">
+    <section v-if="!account.isDemo" class="card">
       <h2><AppIcon name="swap" :size="16" /> {{ t('sync.yazio') }}</h2>
 
       <div class="sum">
@@ -518,7 +564,7 @@ const runChip = (status: string): string =>
     </section>
 
     <!-- ── Apple Health ─────────────────────────────────────────────────── -->
-    <section class="card">
+    <section v-if="!account.isDemo" class="card">
       <h2><AppIcon name="steps" :size="16" /> {{ t('health') }}</h2>
 
       <div class="sum">

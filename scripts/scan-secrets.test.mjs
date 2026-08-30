@@ -67,6 +67,8 @@ describe('поиск секретов и чужих данных', () => {
       ['jwt', 'const t = "ey' + 'JhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVP"'],
       ['пароль', "const password = 'hunter" + "22026abc'"],
       ['строка подключения', `DATABASE_URL=postgresql://user:s3cret${at}localhost:5432/db`],
+      // послабление на RFC 2606 — про домен целиком, а не про слово внутри имени
+      ['почта с invalid в имени', `const owner = "invalid.user${at}yandex.ru"`],
     ];
     for (const [name, text] of cases) {
       const found = scanFile(file(`${name}.ts`, text));
@@ -82,6 +84,9 @@ describe('поиск секретов и чужих данных', () => {
       'import { useApi } from "@fatoff/contracts"',
       'const mail = `' + '${user}' + String.fromCharCode(64) + '${domain}`',
       'const key = "0000000000000000000000000000000000000000"',
+      // домены RFC 2606 не существуют: по такому живёт демо-аккаунт (D-068)
+      `static readonly EMAIL = 'demo${String.fromCharCode(64)}fatoff.invalid'`,
+      `const box = "someone${String.fromCharCode(64)}service.test"`,
     ];
     for (const text of safe) {
       const found = scanFile(file(`safe-${safe.indexOf(text)}.ts`, text));

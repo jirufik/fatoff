@@ -47,6 +47,17 @@ export class Account {
   @Property({ type: 'json', nullable: true })
   profile: Record<string, unknown> | null = null;
 
+  /**
+   * Аккаунт с выдуманной историей, собранный кнопкой на странице выбора.
+   *
+   * Отличается от настоящего только этим признаком: данные лежат в тех же
+   * таблицах и считаются теми же формулами (D-068). Признак нужен интерфейсу —
+   * показать, что перед человеком демо, и не предлагать ему синхронизацию,
+   * которой у демо нет.
+   */
+  @Property({ type: 'boolean' })
+  isDemo: boolean = false;
+
   @Property({ type: 'boolean' })
   syncEnabled: boolean = true;
 
