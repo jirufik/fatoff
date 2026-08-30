@@ -445,6 +445,59 @@ for (const palette of ['catppuccin', 'nord', 'graphite', 'tokyo']) {
       problems.push(`гамма «${palette}», ${mode}: контраст текста ${value.toFixed(1)}, нужно 7`);
     }
 
+    /*
+     * Подложка модального окна обязана гасить страницу, а не высветлять её.
+     *
+     * Проверка нужна потому, что беда видна ровно в половине случаев: пока
+     * затемнение считалось от чернил, на светлой стороне всё сходилось, а на
+     * тёмной чернила светлые — и подложка выходила светлее самой страницы
+     * (D-031). Меряется то, что увидит человек: цвет подложки смешивается с
+     * фоном по своей прозрачности, а не берётся из текста правила.
+     */
+    const scrim = await page.evaluate(() => {
+      // цвет приезжает в oklab: разобрать его как «три числа подряд» нельзя
+      const linear = (css) => {
+        const nums = css.match(/-?[\d.]+/g).map(Number);
+        if (css.startsWith('oklab')) {
+          const [L, a, b] = nums;
+          const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+          const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+          const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+          return {
+            rgb: [
+              4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+              -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+              -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+            ],
+            alpha: nums[3] ?? 1,
+          };
+        }
+        const [r, g, b] = nums.slice(0, 3).map((v) => {
+          const c = v / 255;
+          return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+        return { rgb: [r, g, b], alpha: nums[3] ?? 1 };
+      };
+      const bright = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+      const probe = document.createElement('div');
+      probe.style.background = 'var(--scrim)';
+      document.body.append(probe);
+      const top = linear(getComputedStyle(probe).backgroundColor);
+      probe.remove();
+
+      const under = linear(getComputedStyle(document.body).backgroundColor);
+      const mixed = top.rgb.map((c, i) => top.alpha * c + (1 - top.alpha) * under.rgb[i]);
+      return { page: bright(under.rgb), dimmed: bright(mixed) };
+    });
+
+    if (scrim.dimmed >= scrim.page) {
+      problems.push(
+        `гамма «${palette}», ${mode}: подложка окна не гасит страницу — ` +
+          `${scrim.dimmed.toFixed(3)} против фона ${scrim.page.toFixed(3)}`,
+      );
+    }
+
     // жёлто-коричневого в системе быть не должно ни в одной гамме: тёмный
     // жёлтый читается как грязь, светлый — как золото
     const warm = await page.evaluate(() => {

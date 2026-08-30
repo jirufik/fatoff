@@ -333,6 +333,15 @@
   --radius-xs: 6px;
   --tap: 36px;
 
+  /*
+   * Затемнение под модальным окном. Единственное значение, которое не выводится
+   * из палитры, и по необходимости: затемнять должно в обеих темах, а все
+   * тринадцать опорных цветов при смене света меняются местами. Раньше здесь
+   * стояли чернила — на тёмной стороне они светлые, и подложка из них страницу
+   * не гасила, а высветляла.
+   */
+  --scrim: color-mix(in oklab, #0b0e13 45%, transparent);
+
   /* тень едва заметна: глубину держат границы, а не размытие под карточкой */
   --shadow: 0 1px 2px color-mix(in oklab, var(--ink) 6%, transparent);
   --shadow-none: 0 0 0 0 transparent;
@@ -979,7 +988,7 @@ table.data tr:last-child td {
   position: fixed;
   inset: 0;
   z-index: 39;
-  background: color-mix(in oklab, var(--ink) 35%, transparent);
+  background: var(--scrim);
 }
 
 .modal {
