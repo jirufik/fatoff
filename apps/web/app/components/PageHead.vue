@@ -5,27 +5,25 @@
  * Кнопка возврата ведёт в историю браузера, а если истории нет — на страницу
  * аккаунта: открытая по ссылке страница не должна оставлять человека без выхода.
  */
-const props = defineProps<{
+/**
+ * Шапка страницы: заголовок и строка пояснения под ним.
+ *
+ * Кнопки возврата здесь нет намеренно. Пока навигация пряталась в двух полосах,
+ * она помогала; теперь раздел виден в меню всегда, и кнопка только съедала
+ * место (D-067). Свойство `back` осталось, чтобы страницы не переписывать
+ * разом, но ни на что не влияет.
+ */
+defineProps<{
   title: string
   back?: string
   /** Заголовок — не имя, а служебная строка (почта): мельче и в одну строку. */
   faint?: boolean
 }>()
-
-const router = useRouter()
-
-function goBack(): void {
-  if (window.history.length > 1) router.back()
-  else if (props.back) void router.push(props.back)
-}
 </script>
 
 <template>
   <header class="head">
     <div class="row">
-      <button class="back" type="button" title="Назад" aria-label="Назад" @click="goBack">
-        <AppIcon name="back" :size="18" />
-      </button>
       <h1 :class="{ 'head__faint': faint }" :title="title">{{ title }}</h1>
       <slot name="title-extra" />
     </div>
@@ -62,24 +60,6 @@ function goBack(): void {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.back {
-  display: inline-grid;
-  place-items: center;
-  width: 2.1rem;
-  height: 2.1rem;
-  flex: none;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink-2);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.back:hover {
-  background: var(--sunk);
-  color: var(--ink);
-  border-color: color-mix(in oklab, var(--accent) 35%, var(--line));
 }
 .lede {
   margin: 0;
