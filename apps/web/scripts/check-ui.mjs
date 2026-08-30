@@ -56,16 +56,42 @@ await page.locator('.scope .pill').nth(1).click();
 await page.waitForTimeout(1200);
 await page.waitForSelector('.day', { timeout: 10_000 });
 console.log('дней на странице:', await page.locator('.day').count());
-// навигация одна на все страницы аккаунта и стоит на одном месте
-const navOn = async () => {
-  const links = await page.locator('.account-nav__link').count();
-  const active = await page.locator('.account-nav__link--on').count();
-  return { links, active };
+/*
+ * Навигация одна на все страницы аккаунта и стоит на одном месте.
+ *
+ * Полос было две, одна под другой; теперь одна (D-067). На широком экране в
+ * ней четыре главных раздела и «Ещё», подсвечен ровно один: либо сам раздел,
+ * либо «Ещё», если открыт раздел из-под него. Список для узкого экрана при
+ * 1400px обязан быть спрятан — иначе разделы задвоятся.
+ */
+const checkNav = async (where) => {
+  const pills = await page.locator('.bar__sections .pill').count();
+  const active = await page.locator('.bar__sections .pill--on').count();
+  if (pills !== 5) problems.push(`полоса разделов на ${where}: кнопок ${pills}, ожидалось 5`);
+  if (active !== 1) problems.push(`полоса разделов на ${where}: подсвечено ${active}, ожидался 1`);
+  if (await page.locator('.drop--narrow').isVisible()) {
+    problems.push(`полоса разделов на ${where}: при 1400px показан узкий список`);
+  }
 };
-const journalNav = await navOn();
-if (journalNav.links !== 8 || journalNav.active !== 1) {
-  problems.push(`полоса разделов на дне: ${journalNav.links} ссылок, ${journalNav.active} активных`);
-}
+await checkNav('дне');
+
+// разделов по-прежнему восемь: четыре на виду и четыре под «Ещё»
+await page.locator('.bar__sections .drop .pill').click();
+await page.waitForTimeout(200);
+const hidden = await page.locator('.bar__sections .drop .menu__item').count();
+if (hidden !== 4) problems.push(`под «Ещё» разделов ${hidden}, ожидалось 4`);
+await page.keyboard.press('Escape');
+
+// сервисное — под шестерёнкой: аккаунты, выгрузки, поля, язык, тема, выход
+await page.locator('.gear').click();
+await page.waitForTimeout(200);
+const service = await page.locator('.menu--wide .menu__item, .menu--wide .row-item').count();
+if (service < 6) problems.push(`под шестерёнкой пунктов ${service}, ожидалось не меньше 6`);
+await page.keyboard.press('Escape');
+
+// кнопки «назад» быть не должно: на неё уходила строка, а навигация и так есть
+const back = await page.locator('.back').count();
+if (back > 0) problems.push(`кнопок «назад» на странице: ${back}`);
 await shot('journal-list');
 
 await page.locator('.day__head').first().click();
@@ -78,7 +104,6 @@ console.log('приёмов пищи:', meals, '| составляющих оц�
 if (meals === 0) problems.push('день раскрылся без приёмов пищи');
 if (parts !== 6) problems.push(`составляющих оценки ${parts}, ожидалось 6`);
 if ((await page.locator('.legend').count()) === 0) problems.push('нет пояснения к оценке дня');
-if ((await page.locator('.head .back').count()) === 0) problems.push('нет кнопки возврата');
 
 /*
  * Полоска составляющей должна быть окрашена по уровню, а не всегда одинаково.
@@ -143,10 +168,7 @@ await page.goto(`${BASE}/accounts/${ACCOUNT}/planner`);
 await page.waitForSelector('.modes', { timeout: 10_000 });
 await page.waitForTimeout(800);
 
-const plannerNav = await navOn();
-if (plannerNav.links !== 8 || plannerNav.active !== 1) {
-  problems.push(`полоса разделов на режиме: ${plannerNav.links} ссылок, ${plannerNav.active} активных`);
-}
+await checkNav('режиме');
 
 const basic = await page.locator('.setting').count();
 const modes = await page.locator('.mode').count();
@@ -371,7 +393,17 @@ await page.waitForTimeout(500);
 // ни одна гамма не оставляет текст неразличимым на подложке
 const themeOf = () => page.evaluate(() => document.documentElement.getAttribute('data-theme'));
 
-const themeButton = page.locator('.controls .icon-btn').nth(1);
+// свет и гаммы живут строками меню под шестерёнкой; меню закрывается по выбору
+// раздела, но не по смене темы — открываем один раз на весь блок проверок
+const openGear = async () => {
+  if ((await page.locator('.menu--wide').count()) === 0) {
+    await page.locator('.gear').click();
+    await page.waitForSelector('.menu--wide', { timeout: 5_000 });
+  }
+};
+await openGear();
+
+const themeButton = page.locator('.menu--wide .row-item').nth(1);
 await themeButton.click();
 await page.waitForTimeout(200);
 if ((await themeOf()) !== 'light') problems.push('первое нажатие не включило светлую тему');
@@ -384,8 +416,8 @@ await shot('planner-dark');
 // каждая гамма проверяется на обеих сторонах: тёмная нарисована отдельно от
 // светлой, и промах в одной из них другой не виден
 for (const palette of ['catppuccin', 'nord', 'graphite', 'tokyo']) {
-  await page.locator('.picker .icon-btn').click();
-  await page.locator(`.menu__item:has(.swatch[data-palette="${palette}"])`).click();
+  await openGear();
+  await page.locator(`.menu--wide .row-item:has(.swatch[data-palette="${palette}"])`).click();
   await page.waitForTimeout(250);
 
   const applied = await page.evaluate(() => document.documentElement.getAttribute('data-palette'));
@@ -455,8 +487,12 @@ for (const palette of ['catppuccin', 'nord', 'graphite', 'tokyo']) {
 
 // ── узкий экран ─────────────────────────────────────────────────────────────
 // проверяется главное: страница не должна ехать вбок
+//
+// 360, а не 390: на 390 всё сходилось, а на распространённом андроидном 360
+// длинное название раздела в шапке («Как это работает») выталкивало шестерёнку
+// за край. Узкая ширина ловит строго больше, поэтому проверяем по ней.
 await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
-await page.setViewportSize({ width: 390, height: 844 });
+await page.setViewportSize({ width: 360, height: 844 });
 for (const [name, path] of [
   // обзор попал сюда не зря: длинная почта в заголовке раздвигала страницу до
   // 417px, и телефон показывал её уменьшенной целиком
@@ -466,6 +502,9 @@ for (const [name, path] of [
   ['plans', `/accounts/${ACCOUNT}/plans`],
   ['guide', `/accounts/${ACCOUNT}/guide`],
   ['data', `/accounts/${ACCOUNT}/data`],
+  // длинные названия разделов в шапке ломались именно здесь
+  ['sync', `/accounts/${ACCOUNT}/sync`],
+  ['export', `/accounts/${ACCOUNT}/export`],
 ]) {
   await page.goto(`${BASE}${path}`);
   await page.waitForSelector('.card', { timeout: 10_000 });
@@ -493,7 +532,7 @@ for (const [name, path] of [
   });
 
   if (overflow.scroll > overflow.view + 1) {
-    problems.push(`${name} на 390px едет вбок: ${overflow.scroll}px при ${overflow.view}px — ${overflow.wide.join('; ')}`);
+    problems.push(`${name} на 360px едет вбок: ${overflow.scroll}px при ${overflow.view}px — ${overflow.wide.join('; ')}`);
   }
 
   /*
@@ -518,7 +557,21 @@ for (const [name, path] of [
       .map((el) => `${el.tagName}.${String(el.className).slice(0, 30)} ${el.clientWidth}→${el.scrollWidth}`)
       .slice(0, 4),
   );
-  if (inner.length > 0) problems.push(`${name} на 390px: вбок едет ${inner.join(' ; ')}`);
+  if (inner.length > 0) problems.push(`${name} на 360px: вбок едет ${inner.join(' ; ')}`);
+
+  /*
+   * Полоса на телефоне должна остаться узкой и в одну строку: ради этого
+   * разделы и уехали под текущий (D-067). Две полосы занимали 525px до
+   * содержимого — половину экрана.
+   */
+  if (!(await page.locator('.drop--narrow').isVisible())) {
+    problems.push(`${name} на 360px: разделы не схлопнуты в список`);
+  }
+  if (await page.locator('.bar__sections').isVisible()) {
+    problems.push(`${name} на 360px: разделы всё ещё вразбивку`);
+  }
+  const barHeight = await page.locator('.bar').evaluate((el) => el.getBoundingClientRect().height);
+  if (barHeight > 56) problems.push(`${name} на 360px: полоса ${Math.round(barHeight)}px, ожидалось не выше 56`);
 
   await shot(`mobile-${name}`);
 }
@@ -613,7 +666,11 @@ await page.waitForSelector('.modes', { timeout: 10_000 });
 await page.waitForTimeout(900);
 
 const modeTitleRu = await page.locator('.mode strong').first().innerText();
-await page.locator('.icon-btn--text').click();
+// язык — первая строка меню под шестерёнкой; меню за собой закрываем, иначе
+// оно накроет страницу, по которой дальше ищется кириллица
+await openGear();
+await page.locator('.menu--wide .row-item').first().click();
+await page.keyboard.press('Escape');
 await page.waitForTimeout(600);
 const modeTitleEn = await page.locator('.mode strong').first().innerText();
 console.log(`язык: «${modeTitleRu}» → «${modeTitleEn}»`);
@@ -637,7 +694,7 @@ const cyrillicOn = async () => page.evaluate(() => {
       node.parentElement?.closest(
         // имя аккаунта и название плана пишет сама пользовательница: это её
         // текст, а не подпись интерфейса, и переводить его нечем
-        'td, .dish, .chip--mute, .swap__row, .dish-picker, .plan, .file-name, .tag, .head h1, .account-nav__who, .email, .card--link strong',
+        'td, .dish, .chip--mute, .swap__row, .dish-picker, .plan, .file-name, .tag, .head h1, .who__name, .email, .card--link strong',
       )
     ) {
       continue;
@@ -687,7 +744,10 @@ await page.waitForSelector('.modes', { timeout: 10_000 });
 await page.waitForTimeout(600);
 await shot('planner-en');
 
-await page.locator('.icon-btn--text').click();
+// обратно на русский
+await openGear();
+await page.locator('.menu--wide .row-item').first().click();
+await page.keyboard.press('Escape');
 await page.waitForTimeout(500);
 
 // одинаковые id — невалидная разметка: подпись начинает вести не на своё поле
