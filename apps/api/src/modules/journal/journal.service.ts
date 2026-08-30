@@ -59,15 +59,27 @@ export class JournalService {
     const offset = (page - 1) * pageSize;
 
     const columns: Record<string, string> = {
-      date: 'date',
-      balance: 'balance_kcal',
+      protein: 'protein_g',
       energy: 'energy_kcal',
-      steps: 'steps',
+      workout: 'workout_kcal',
     };
-    const column = columns[query.sort ?? 'date'] ?? 'date';
     const dir = query.dir === 'asc' ? 'asc' : 'desc';
+
+    /*
+     * Оценка дня — не колонка.
+     *
+     * Она складывается в JS из шести составляющих с коридорами и весами
+     * (D-054). Переписать её на SQL ради сортировки значило бы завести вторую
+     * копию формулы — ровно то, из-за чего разбор дневника вынесен в один
+     * общий SQL (D-018). Поэтому при сортировке по оценке страница собирается
+     * в памяти: дней у человека тысячи, а не миллионы, и одна лишняя выборка
+     * дешевле разъехавшихся формул.
+     */
+    const byScore = query.sort === 'score';
+    const column = columns[query.sort ?? ''] ?? 'date';
     // вторичный ключ обязателен: без него страницы «плавают» между запросами
-    const order = `order by ${column} ${dir} nulls last, date desc`;
+    const order = byScore ? 'order by date desc' : `order by ${column} ${dir} nulls last, date desc`;
+    const paging = byScore ? '' : 'limit ? offset ?';
 
     const params = [
       ...entriesParams(accountId, from, to),
@@ -76,8 +88,7 @@ export class JournalService {
       accountId, from, to, // сон
       accountId, from, to, // дни YAZIO
       accountId, from, to, // взвешивания
-      pageSize,
-      offset,
+      ...(byScore ? [] : [pageSize, offset]),
     ];
 
     const rows = await this.query<RawJournalRow>(
@@ -147,14 +158,32 @@ export class JournalService {
          from joined
         ${where(query)}
         ${order}
-        limit ? offset ?`,
+        ${paging}`,
       params,
     );
 
     const targets = await this.scoreTargets(accountId);
+    const days = rows.map((row) => this.toDay(row, targets));
+
+    if (byScore) {
+      // дни без оценки уходят вниз при любом направлении: «худший» и «неизвестный»
+      // это разные вещи, и мешать их в одну кучу значило бы врать
+      const scored = days.filter((day) => day.score !== null);
+      const unknown = days.filter((day) => day.score === null);
+      scored.sort((left, right) =>
+        dir === 'asc' ? left.score! - right.score! : right.score! - left.score!,
+      );
+      const sorted = [...scored, ...unknown];
+      return {
+        items: sorted.slice(offset, offset + pageSize),
+        total: sorted.length,
+        page,
+        pageSize,
+      };
+    }
 
     return {
-      items: rows.map((row) => this.toDay(row, targets)),
+      items: days,
       total: Number(rows[0]?.total ?? 0),
       page,
       pageSize,

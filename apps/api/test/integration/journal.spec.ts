@@ -227,12 +227,44 @@ describe('день целиком', () => {
     }
   });
 
-  it('сортирует по балансу и держит страницу', async () => {
-    const page = await journal.days(account.id, { sort: 'balance', dir: 'asc', pageSize: 3 });
+  it('сортирует по белку и держит страницу', async () => {
+    const page = await journal.days(account.id, { sort: 'protein', pageSize: 3 });
     expect(page.pageSize).toBe(3);
     expect(page.items).toHaveLength(3);
-    // строка с посчитанным балансом идёт раньше строк без него
-    expect(page.items[0].balanceKcal).not.toBeNull();
+    // «лучшее сверху»: первая строка не меньше второй
+    expect(page.items[0].proteinG).not.toBeNull();
+    expect(page.items[0].proteinG!).toBeGreaterThanOrEqual(page.items[1].proteinG ?? 0);
+  });
+
+  /*
+   * Оценка считается в JS, а не в SQL, поэтому страница при такой сортировке
+   * собирается в памяти. Проверяется и порядок, и то, что постраничность от
+   * этого не рассыпалась (D-071).
+   */
+  it('сортирует по оценке дня, считая её тем же кодом, что и страница', async () => {
+    const page = await journal.days(account.id, { sort: 'score', pageSize: 5 });
+    const scores = page.items.map((day) => day.score).filter((value) => value !== null);
+
+    expect(scores.length).toBeGreaterThan(1);
+    for (let at = 1; at < scores.length; at += 1) {
+      expect(scores[at - 1]!).toBeGreaterThanOrEqual(scores[at]!);
+    }
+
+    const all = await journal.days(account.id, { sort: 'score', pageSize: 200 });
+    expect(page.total).toBe(all.total);
+    // вторая страница продолжает первую, а не начинает заново
+    const second = await journal.days(account.id, { sort: 'score', pageSize: 5, page: 2 });
+    expect(second.items[0]?.date).toBe(all.items[5]?.date);
+  });
+
+  it('дни без оценки уходят вниз при любом направлении', async () => {
+    for (const dir of ['desc', 'asc'] as const) {
+      const page = await journal.days(account.id, { sort: 'score', dir, pageSize: 200 });
+      const firstUnknown = page.items.findIndex((day) => day.score === null);
+      if (firstUnknown === -1) continue;
+      const after = page.items.slice(firstUnknown);
+      expect(after.every((day) => day.score === null)).toBe(true);
+    }
   });
 
   it('день, о котором нет вообще ничего, отдаёт пустой состав, а не падает', async () => {

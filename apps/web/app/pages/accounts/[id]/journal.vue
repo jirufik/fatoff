@@ -39,8 +39,18 @@ const to = ref('')
 const SCOPES = ['all', 'food', 'both'] as const
 type Scope = (typeof SCOPES)[number]
 const scope = ref<Scope>('all')
-const sort = ref<'date' | 'balance' | 'energy' | 'steps'>('date')
-const dir = ref<'asc' | 'desc'>('desc')
+/*
+ * Четыре сортировки, и все «лучшее сверху»: оценка, белок, калории, калории
+ * тренировок. Их назвал заказчик, прежние — по дате, балансу и шагам — убраны
+ * (D-071).
+ *
+ * `null` — порядок по дате, от свежего к старому. Кнопки у него нет: к нему
+ * возвращаются повторным нажатием на выбранную сортировку, и об этом сказано
+ * подписью под кнопками, иначе догадаться нельзя.
+ */
+const SORTS = ['score', 'protein', 'energy', 'workout'] as const
+type Sort = (typeof SORTS)[number]
+const sort = ref<Sort | null>(null)
 
 const loading = ref(false)
 const error = ref('')
@@ -58,9 +68,10 @@ async function load(): Promise<void> {
     const query: Record<string, string> = {
       page: String(page.value),
       pageSize: String(pageSize.value),
-      sort: sort.value,
-      dir: dir.value,
     }
+    // сортировка не выбрана — не шлём её вовсе: пустое значение на сервере
+    // означает порядок по дате, и отдельного имени у него нет
+    if (sort.value) query.sort = sort.value
     if (from.value) query.from = from.value
     if (to.value) query.to = to.value
     if (scope.value === 'food') query.withFood = 'true'
@@ -105,18 +116,12 @@ function toggleMeal(date: string, meal: string): void {
   openMeal.value = openMeal.value === key ? null : key
 }
 
-function sortBy(column: typeof sort.value): void {
-  if (sort.value === column) dir.value = dir.value === 'desc' ? 'asc' : 'desc'
-  else {
-    sort.value = column
-    dir.value = 'desc'
-  }
+function sortBy(column: Sort): void {
+  // повторное нажатие снимает сортировку: это единственный путь обратно к дате
+  sort.value = sort.value === column ? null : column
   page.value = 1
   void load()
 }
-
-const arrow = (column: string): string =>
-  sort.value === column ? (dir.value === 'desc' ? ' ↓' : ' ↑') : ''
 
 watch([from, to, scope], () => {
   page.value = 1
@@ -207,25 +212,27 @@ const BALANCE_TONE: Record<string, string> = {
         </div>
       </div>
       <div class="grow" />
-      <div class="row row--wrap" style="gap: 0.3rem">
-        <button class="btn btn--small" type="button" @click="sortBy('date')">
-          {{ t('journal.sort.date') }}{{ arrow('date') }}
-        </button>
-        <button class="btn btn--small" type="button" @click="sortBy('balance')">
-          {{ t('journal.sort.balance') }}{{ arrow('balance') }}
-        </button>
-        <button class="btn btn--small" type="button" @click="sortBy('energy')">
-          {{ t('journal.sort.energy') }}{{ arrow('energy') }}
-        </button>
-        <button class="btn btn--small" type="button" @click="sortBy('steps')">
-          {{ t('journal.sort.steps') }}{{ arrow('steps') }}
+      <div class="row row--wrap sorts" style="gap: 0.3rem">
+        <button
+          v-for="item in SORTS"
+          :key="item"
+          class="btn btn--small"
+          :class="{ 'btn--primary': sort === item }"
+          type="button"
+          :aria-pressed="sort === item"
+          @click="sortBy(item)"
+        >
+          {{ t(`journal.sort.${item}`) }}<span v-if="sort === item"> ↓</span>
         </button>
       </div>
 
       <!-- пояснение к выбранному отбору: подсказка по наведению на телефоне
            недоступна вовсе, а угадывать разницу между кнопками не должно быть
            нужно -->
-      <p class="tiny muted filters__note">{{ t(`journal.scope.${scope}.note`) }}</p>
+      <p class="tiny muted filters__note">
+        {{ t(`journal.scope.${scope}.note`) }}
+        <template v-if="sort"> {{ t('journal.sort.note') }}</template>
+      </p>
     </div>
 
     <div v-if="loading" class="card"><span class="spinner" /> {{ t('common.loading') }}</div>

@@ -1,4 +1,6 @@
 import { Transform, Type } from 'class-transformer';
+
+import type { JournalSort } from '@fatoff/contracts';
 import { IsBoolean, IsIn, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -36,9 +38,10 @@ export class JournalQueryDto {
   @Max(200)
   pageSize?: number;
 
+  /** Пусто — по дате, от свежего к старому: отдельной кнопки у этого порядка нет. */
   @IsOptional()
-  @IsIn(['date', 'balance', 'energy', 'steps'])
-  sort?: 'date' | 'balance' | 'energy' | 'steps';
+  @IsIn(['score', 'protein', 'energy', 'workout'])
+  sort?: JournalSort;
 
   @IsOptional()
   @IsIn(['asc', 'desc'])

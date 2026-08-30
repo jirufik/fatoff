@@ -75,6 +75,43 @@ const checkNav = async (where) => {
 };
 await checkNav('дне');
 
+/*
+ * Сортировок ровно четыре, и все «лучшее сверху» (D-071). Проверяется и порядок,
+ * и путь обратно: кнопки «по дате» нет, к хронологии возвращает повторное
+ * нажатие — без этого человек, нажавший «белок», остаётся в нём навсегда.
+ */
+const sortNames = (await page.locator('.sorts button').allInnerTexts()).map((text) => text.trim());
+if (sortNames.length !== 4) {
+  problems.push(`кнопок сортировки ${sortNames.length}, ожидалось 4: ${sortNames.join(', ')}`);
+}
+const firstDate = () => page.locator('.day__date strong').first().innerText();
+const dateBefore = await firstDate();
+
+await page.locator('.sorts button').nth(1).click();
+await page.waitForTimeout(1200);
+// белок берётся из своей разметки, а не разбором текста: в строке он выводится
+// как «Б165», без пробела, и любой разбор по тексту тут же ломается
+const proteins = (await page.locator('.day .macro--protein .value').allInnerTexts())
+  .map((value) => Number(value.trim().replace(',', '.')))
+  .filter(Number.isFinite);
+if (proteins.length < 3) {
+  problems.push(`белок не вычитался из строк дня: нашлось ${proteins.length} значений`);
+} else if (!proteins.every((value, at) => at === 0 || proteins[at - 1] >= value)) {
+  problems.push(`сортировка по белку не по убыванию: ${proteins.slice(0, 6).join(', ')}`);
+}
+if ((await page.locator('.sorts .btn--primary').count()) !== 1) {
+  problems.push('выбранная сортировка не подсвечена');
+}
+
+await page.locator('.sorts button').nth(1).click();
+await page.waitForTimeout(1200);
+if ((await firstDate()) !== dateBefore) {
+  problems.push('повторное нажатие не вернуло порядок по дате');
+}
+if ((await page.locator('.sorts .btn--primary').count()) !== 0) {
+  problems.push('сортировка снята, а подсветка осталась');
+}
+
 // разделов по-прежнему восемь: четыре на виду и четыре под «Ещё»
 await page.locator('.bar__sections .drop .pill').click();
 await page.waitForTimeout(200);
