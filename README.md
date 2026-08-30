@@ -67,12 +67,10 @@
 cp .env.example .env
 # заполнить APP_PASSWORD, SESSION_SECRET и SECRETS_KEY:
 #   openssl rand -hex 32
-pnpm db:up        # PostgreSQL: контейнер fatoff-postgresql
-pnpm docker:up    # сборка образа и запуск fatoff-app на 4090
+pnpm docker:up    # база и приложение одним стеком: 4090
 ```
 
-База поднимается своим файлом, а не заодно с приложением: иначе том зависел бы
-от того, чем сервис запустили в этот раз, и их становилось два.
+Прод — один стек `fatoff`: база и приложение в одном файле, как и у develop.
 
 Сервис на `http://localhost:4090`. Вход — по `APP_PASSWORD`.
 

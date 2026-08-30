@@ -1,18 +1,43 @@
 name: fatoff
 
-# База поднимается своим файлом — `pnpm db:up`. Раньше она заводилась ещё и
-# отсюда через `extends`, и получалось два тома: какой окажется под сервисом,
-# зависело от того, чем его запустили в этот раз. Один хозяин на базу — здесь
-# её нет вовсе.
+# Прод целиком: база и приложение в одном стеке (D-066).
 #
-# Порядок запуска держится на `restart: unless-stopped`: если база ещё не
-# отвечает, приложение перезапустится и дождётся её.
+# Раньше база жила отдельным файлом и отдельным проектом `fatoff-postgresql`, и
+# в списке стеков прод выглядел как две несвязанные записи. Это не только
+# некрасиво: остановить прод одной командой было нельзя, а `extends` из второго
+# файла однажды уже развёл два разных тома — какой окажется под сервисом,
+# зависело от того, чем его запустили в этот раз.
+#
+# Develop с самого начала собран так же, одним файлом.
 
 services:
+  postgresql:
+    image: postgres:17
+    container_name: fatoff-postgresql
+    restart: unless-stopped
+    ports:
+      - "5482:5432"
+    environment:
+      POSTGRES_USER: fatoff
+      POSTGRES_PASSWORD: fatoff
+      POSTGRES_DB: fatoff
+      TZ: UTC
+    volumes:
+      - fatoff-postgresql-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fatoff -d fatoff"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [fatoff-net]
+
   app:
     build: .
     container_name: fatoff-app
     restart: unless-stopped
+    depends_on:
+      postgresql:
+        condition: service_healthy
     ports:
       - "4090:4090"
     # та же сеть, что и у базы, — иначе postgresql не резолвится по имени
@@ -61,13 +86,14 @@ services:
       retries: 5
       start_period: 20s
 
-# имя тома задано явно: иначе compose приписал бы к нему имя проекта
+# имена заданы явно: иначе compose приписал бы к ним имя проекта
 volumes:
+  fatoff-postgresql-data:
+    name: fatoff-postgresql-data
   fatoff-exports:
     name: fatoff-exports
 
-# сеть заводит `pnpm db:up` вместе с базой
+# сеть общая с туннелем: он подключается к ней как внешней
 networks:
   fatoff-net:
-    external: true
     name: fatoff-net
