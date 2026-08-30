@@ -967,6 +967,35 @@ table.data tr:last-child td {
 }
 
 /* ── узкий экран ────────────────────────────────────────────────────────── */
+/*
+ * Модальное окно и его подложка.
+ *
+ * Общие, а не в каждой странице по копии: подложка на «Синхронизации» была
+ * объявлена классом, который живёт в стилях шапки и наружу не протекает, —
+ * элемент был, а размера и затемнения у него не было, и клик мимо окна ничего
+ * не закрывал. Одно место на весь сервис такую тишину исключает.
+ */
+.modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: color-mix(in oklab, var(--ink) 35%, transparent);
+}
+
+.modal {
+  position: fixed;
+  z-index: 40;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(30rem, calc(100vw - 2rem));
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+
 @media (max-width: 46rem) {
   body {
     font-size: 15px;

@@ -153,6 +153,7 @@ describe('загрузка выгрузки из Google Drive', () => {
       label: 'тестовый',
       passwordEnc: null,
       profile: null,
+      isDemo: false,
       syncEnabled: false,
       driveEnabled: true,
       driveUrl: 'https://drive.google.com/drive/folders/1FolderAaBbCcDdEeFfGgHh0001',

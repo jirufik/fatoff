@@ -17,6 +17,8 @@ export interface AccountDto {
   /** Человеческая метка: «основной», «второй». Пустая — показываем email. */
   label: string | null;
   authMethod: AuthMethod;
+  /** Аккаунт с выдуманной историей: синхронизировать нечего (D-068). */
+  isDemo: boolean;
   registrationDate: IsoDate | null;
   syncEnabled: boolean;
   /** Время ежедневной синхронизации `ЧЧ:ММ`; пусто — по общему расписанию. */

@@ -293,6 +293,22 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "string"
+        },
+        "is_demo": {
+          "name": "is_demo",
+          "type": "bool",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "false",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "boolean"
         }
       },
       "name": "account",

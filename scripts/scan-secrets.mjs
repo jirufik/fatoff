@@ -44,7 +44,13 @@ export const FORBIDDEN_CONTENT = [
     // домен верхнего уровня буквенный: иначе под правило попадает `pnpm@10.30.3`
     name: 'адрес электронной почты',
     re: /[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}\b/gi,
-    allow: /example\.(com|org)|@fatoff\/|noreply@|@yazio\.com|\{\w+\}|xxxxxxxx@/i,
+    /*
+     * Домены `.invalid`, `.test`, `.example` и `.localhost` зарезервированы
+     * RFC 2606 и не существуют: адрес в них не может принадлежать человеку.
+     * По такому живёт демо-аккаунт (D-068), и ругаться на него — значит учить
+     * обходить проверку.
+     */
+    allow: /example\.(com|org)|\.(invalid|test|example|localhost)\b|@fatoff\/|noreply@|@yazio\.com|\{\w+\}|xxxxxxxx@/i,
   },
   {
     name: 'ключ или хеш длиной от 32 шестнадцатеричных знаков',
