@@ -694,7 +694,7 @@ const cyrillicOn = async () => page.evaluate(() => {
       node.parentElement?.closest(
         // имя аккаунта и название плана пишет сама пользовательница: это её
         // текст, а не подпись интерфейса, и переводить его нечем
-        'td, .dish, .chip--mute, .swap__row, .dish-picker, .plan, .file-name, .tag, .head h1, .who__name, .email, .card--link strong',
+        'td, .dish, .chip--mute, .swap__row, .dish-picker, .plan, .file-name, .tag, .head h1, .who__name, .email, .account__name',
       )
     ) {
       continue;
@@ -908,7 +908,24 @@ if (!demo) {
   await page.goto(`${BASE}/`);
   await page.waitForSelector('.actions', { timeout: 10_000 });
   await page.waitForTimeout(500);
-  await page.locator('.actions .drop').click();
+
+  /*
+   * Плитка кликается целиком, хотя ссылка обёрнута только вокруг имени: её
+   * псевдоэлемент растянут на всю карточку (D-068). Проверяется щелчком мимо
+   * имени — по пустому месту справа от него.
+   */
+  const card = page.locator('.account:has(.account__drop)');
+  const box = await card.boundingBox();
+  await page.mouse.click(box.x + box.width * 0.55, box.y + box.height - 12);
+  await page.waitForTimeout(900);
+  if (!/\/accounts\/[0-9a-f-]{36}$/.test(page.url())) {
+    problems.push(`щелчок по плитке демо никуда не привёл: ${page.url()}`);
+  }
+  await page.goto(`${BASE}/`);
+  await page.waitForSelector('.actions', { timeout: 10_000 });
+  await page.waitForTimeout(500);
+
+  await page.locator('.account__drop').click();
   await page.waitForSelector('.modal', { timeout: 5_000 });
   await page.locator('.modal button.btn--danger').click();
   await page.waitForTimeout(2_000);

@@ -95,21 +95,9 @@ async function removeDemo(): Promise<void> {
         <p class="lede">{{ t('accounts.lede') }}</p>
       </div>
       <div class="row actions">
-        <template v-if="demo">
-          <NuxtLink class="btn" :to="`/accounts/${demo.id}`">
-            <AppIcon name="gauge" :size="14" /> {{ t('demo.open') }}
-          </NuxtLink>
-          <button
-            class="btn btn--danger drop"
-            :title="t('demo.delete')"
-            :aria-label="t('demo.delete')"
-            :disabled="removing"
-            @click="dropping = true"
-          >
-            <span v-if="removing" class="spinner" />
-            <AppIcon v-else name="trash" :size="14" />
-          </button>
-        </template>
+        <NuxtLink v-if="demo" class="btn" :to="`/accounts/${demo.id}`">
+          <AppIcon name="gauge" :size="14" /> {{ t('demo.open') }}
+        </NuxtLink>
         <button v-else class="btn" :disabled="building" @click="createDemo">
           <span v-if="building" class="spinner" />
           <AppIcon v-else name="gauge" :size="14" />
@@ -138,21 +126,36 @@ async function removeDemo(): Promise<void> {
     </template>
 
     <div v-else class="stack">
-      <NuxtLink
-        v-for="account in accounts"
-        :key="account.id"
-        :to="`/accounts/${account.id}`"
-        class="card card--link"
-      >
+      <!--
+        Плитка кликается целиком, но ссылкой её больше не оборачиваем: внутри
+        живёт кнопка удаления, а кнопка внутри ссылки — невалидная разметка,
+        которую браузеры чинят каждый по-своему. Вместо этого ссылка на имени
+        растягивается псевдоэлементом на всю плитку, а корзина лежит поверх неё.
+      -->
+      <div v-for="account in accounts" :key="account.id" class="card card--link account">
         <div class="row row--between">
           <div class="grow">
-            <strong>{{ account.label || account.email }}</strong>
+            <NuxtLink class="account__name" :to="`/accounts/${account.id}`">
+              {{ account.label || account.email }}
+            </NuxtLink>
             <span v-if="account.label" class="tiny email"> · {{ account.email }}</span>
           </div>
           <span v-if="account.isDemo" class="chip chip--info">{{ t('demo.chip') }}</span>
           <span v-else class="chip" :class="`chip--${statusChip(account).kind}`">
             {{ statusChip(account).text }}
           </span>
+          <button
+            v-if="account.isDemo"
+            class="account__drop"
+            type="button"
+            :title="t('demo.delete')"
+            :aria-label="t('demo.delete')"
+            :disabled="removing"
+            @click="dropping = true"
+          >
+            <span v-if="removing" class="spinner" />
+            <AppIcon v-else name="trash" :size="14" />
+          </button>
         </div>
 
         <div class="row row--wrap muted" style="margin-top: 0.5rem; gap: 1.2rem">
@@ -173,7 +176,7 @@ async function removeDemo(): Promise<void> {
             </span>
           </template>
         </div>
-      </NuxtLink>
+      </div>
     </div>
 
     <!-- Подтверждение есть, набранного слова нет: терять тут нечего -->
@@ -199,9 +202,56 @@ async function removeDemo(): Promise<void> {
   flex: none;
 }
 
-/* корзина рядом с «Открыть демо»: значок без подписи, чтобы не спорил с ней */
-.drop {
-  padding-inline: 0.7rem;
+.account {
+  position: relative;
+}
+
+/*
+ * Ссылка на имени накрывает плитку целиком.
+ *
+ * Так плитка остаётся кликабельной, а разметка — валидной: кнопка удаления
+ * лежит рядом со ссылкой, а не внутри неё (D-068).
+ */
+.account__name {
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+.account__name::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+/*
+ * Корзина на карточке демо: значок, а не кнопка первого ряда.
+ *
+ * Тихая по умолчанию и краснеет под курсором — удаление здесь не то действие,
+ * ради которого на плитку смотрят, но и прятать его в глубину незачем.
+ */
+.account__drop {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.account__drop:hover {
+  background: color-mix(in oklab, var(--bad) 12%, transparent);
+  color: var(--bad);
+}
+.account__drop:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 
@@ -213,10 +263,6 @@ async function removeDemo(): Promise<void> {
   .actions > * {
     flex: 1;
     justify-content: center;
-  }
-  /* корзине во всю ширину делать нечего: она значок, а не действие первого ряда */
-  .actions > .drop {
-    flex: none;
   }
 }
 </style>
