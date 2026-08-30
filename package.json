@@ -18,10 +18,7 @@
     "develop:up": "docker compose -f docker-compose.develop.yml up -d --build",
     "develop:down": "docker compose -f docker-compose.develop.yml down",
     "develop:logs": "docker compose -f docker-compose.develop.yml logs -f app",
-    "db:down": "docker compose stop postgresql",
-    "tunnel:up": "docker compose -f infrastructure/cloudflared/docker-compose.yml up -d",
-    "tunnel:down": "docker compose -f infrastructure/cloudflared/docker-compose.yml down",
-    "tunnel:logs": "docker compose -f infrastructure/cloudflared/docker-compose.yml logs -f cloudflared"
+    "db:down": "docker compose stop postgresql"
   },
   "devDependencies": {
     "turbo": "^2.5.4",
