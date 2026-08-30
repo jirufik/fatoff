@@ -3,13 +3,10 @@ import type { AccountDto } from '@fatoff/contracts'
 
 const route = useRoute()
 const api = useApi()
-const { logout } = useAuth()
 const { restore } = useTheme()
-const { restore: restoreLocale, t } = useI18n()
+const { restore: restoreLocale } = useI18n()
 
-const showNav = computed(() => route.path !== '/login')
-
-/** Внутри аккаунта под шапкой висит полоса его разделов — одна на все страницы. */
+/** Разделы аккаунта живут в той же полосе, что и всё остальное (D-067). */
 const accountId = computed(() => {
   const match = /^\/accounts\/([0-9a-f-]{36})(\/|$)/.exec(route.path)
   return match?.[1] ?? null
@@ -42,19 +39,7 @@ onMounted(() => {
 
 <template>
   <div class="shell">
-    <header class="topbar">
-      <NuxtLink to="/" class="brand">{{ t('app.name') }}</NuxtLink>
-      <nav>
-        <template v-if="showNav">
-          <NuxtLink to="/">{{ t('nav.accounts') }}</NuxtLink>
-          <NuxtLink to="/exports">{{ t('nav.exports') }}</NuxtLink>
-          <NuxtLink to="/fields">{{ t('nav.fields') }}</NuxtLink>
-          <a href="#" @click.prevent="logout">{{ t('nav.logout') }}</a>
-        </template>
-        <ThemeToggle />
-      </nav>
-    </header>
-    <AccountNav v-if="accountId" :id="accountId" :label="account?.label || account?.email" />
+    <TopNav v-if="route.path !== '/login'" :account-id="accountId" :account="account" />
     <main class="page">
       <slot />
     </main>
