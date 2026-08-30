@@ -798,6 +798,88 @@ const rawInputs = await page.evaluate(() => {
 });
 if (rawInputs.length > 0) problems.push(`поля без общего оформления: ${rawInputs.join(', ')}`);
 
+/*
+ * ── демо-аккаунт ────────────────────────────────────────────────────────────
+ *
+ * Смысл демо в том, что после нажатия одной кнопки страницы перестают быть
+ * пустыми (D-068). Ровно это здесь и проверяется: собрать демо и посмотреть,
+ * что в днях есть дни, в планах — план, а в «Синхронизации» вместо YAZIO и
+ * Apple Health стоит объяснение, почему синхронизировать нечего.
+ */
+await page.setViewportSize({ width: 1400, height: 1000 });
+await page.goto(`${BASE}/`);
+await page.waitForSelector('.stack, .card', { timeout: 10_000 });
+await page.waitForTimeout(400);
+
+const demoButton = page.locator('button:has-text("Создать демо")');
+const demoLink = page.locator('a:has-text("Открыть демо")');
+if ((await demoButton.count()) + (await demoLink.count()) === 0) {
+  problems.push('на странице аккаунтов нет ни кнопки создания демо, ни ссылки на него');
+}
+
+// нажимаем всегда: пересборка заодно проверяет, что второе демо не плодится
+const demo = await page.evaluate(async () => {
+  const response = await fetch('/api/demo', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ locale: 'ru' }),
+  });
+  return response.ok ? response.json() : null;
+});
+
+if (!demo) {
+  problems.push('демо-аккаунт не собрался');
+} else {
+  console.log('демо:', demo.storedDays, 'дней,', demo.storedFrom, '—', demo.storedTo);
+  if (demo.storedDays < 150) problems.push(`в демо всего ${demo.storedDays} дней`);
+  if (demo.syncEnabled) problems.push('у демо включена синхронизация, которой у него нет');
+
+  await page.goto(`${BASE}/accounts/${demo.id}/journal`);
+  await page.waitForSelector('.day', { timeout: 15_000 });
+  await page.waitForTimeout(900);
+  const demoDays = await page.locator('.day').count();
+  if (demoDays === 0) problems.push('в демо нет ни одного дня');
+
+  /*
+   * Оценки должны расходиться. Демо, где каждый день зелёный, показывает
+   * только то, что кружок рисуется: разброс и есть половина смысла страницы.
+   */
+  const scores = await page.locator('.day .score__value').allInnerTexts();
+  const values = scores.map((text) => Number(text.trim())).filter((value) => Number.isFinite(value));
+  console.log('оценок на странице:', values.length, values.length > 0 ? `от ${Math.min(...values)} до ${Math.max(...values)}` : '');
+  // пустой список означает, что селектор промахнулся, а не что всё хорошо
+  if (values.length < 5) problems.push(`оценок на странице демо ${values.length}, ожидалось больше пяти`);
+  if (values.length > 5 && Math.max(...values) - Math.min(...values) < 15) {
+    problems.push(`оценки в демо почти не отличаются: от ${Math.min(...values)} до ${Math.max(...values)}`);
+  }
+  await shot('demo-journal');
+
+  await page.goto(`${BASE}/accounts/${demo.id}/plans`);
+  await page.waitForSelector('.card', { timeout: 15_000 });
+  await page.waitForTimeout(700);
+  if ((await page.locator('.plan').count()) === 0) problems.push('в демо не сохранён ни один план');
+
+  await page.goto(`${BASE}/accounts/${demo.id}/sync`);
+  await page.waitForSelector('.card', { timeout: 15_000 });
+  await page.waitForTimeout(600);
+  const sections = await page.locator('section.card h2').allInnerTexts();
+  if (sections.length !== 2) {
+    problems.push(`в «Синхронизации» демо ${sections.length} разделов, ожидалось 2: демо и удаление`);
+  }
+  if (sections.some((title) => title.includes('YAZIO') || title.includes('Apple Health'))) {
+    problems.push('демо предлагают синхронизацию, которой у него нет');
+  }
+  await shot('demo-sync');
+
+  await page.goto(`${BASE}/accounts/${demo.id}/planner`);
+  await page.waitForSelector('.modes', { timeout: 15_000 });
+  await page.waitForTimeout(900);
+  const dashesInTargets = await page.locator('.targets td.num:has-text("—")').count();
+  if (dashesInTargets > 2) problems.push(`нормы демо не посчитались: прочерков ${dashesInTargets}`);
+  await shot('demo-planner');
+}
+
 await browser.close();
 
 console.log(problems.length === 0 ? '\nПРОВЕРКА ПРОЙДЕНА' : `\nПРОБЛЕМЫ:\n- ${problems.join('\n- ')}`);

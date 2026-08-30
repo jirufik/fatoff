@@ -61,6 +61,7 @@ describe('синхронизация: от YAZIO до базы', () => {
       passwordEnc: crypto.encrypt(data.password),
       registrationDate: '2026-08-01',
       profile: null,
+      isDemo: false,
       syncEnabled: true,
       driveEnabled: false,
       lastSyncStatus: 'never',

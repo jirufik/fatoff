@@ -59,6 +59,7 @@ describe('генератор режима', () => {
       passwordEnc: crypto.encrypt(data.password),
       registrationDate: '2026-08-01',
       profile: { sex: 'female', date_of_birth: '1990-06-04', body_height: 165 },
+      isDemo: false,
       syncEnabled: true,
       driveEnabled: false,
       lastSyncStatus: 'never',

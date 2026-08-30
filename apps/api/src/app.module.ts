@@ -17,6 +17,7 @@ import { ExportsModule } from './modules/exports/exports.module';
 import { JournalModule } from './modules/journal/journal.module';
 import { PlannerModule } from './modules/planner/planner.module';
 import { AppleHealthModule } from './modules/apple-health/apple-health.module';
+import { DemoModule } from './modules/demo/demo.module';
 import { DriveModule } from './modules/drive/drive.module';
 import { HealthModule } from './modules/health/health.module';
 import { SyncScheduleModule } from './modules/schedule/schedule.module';
@@ -61,6 +62,7 @@ import { YazioModule } from './modules/yazio/yazio.module';
     BrowseModule,
     AppleHealthModule,
     DriveModule,
+    DemoModule,
     PlannerModule,
     JournalModule,
     SyncScheduleModule,
