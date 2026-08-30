@@ -872,12 +872,62 @@ if (!demo) {
   }
   await shot('demo-sync');
 
+  /*
+   * Удаление демо не требует набранного слова: терять нечего, а собрать заново
+   * — одно нажатие (D-068). У настоящего аккаунта слово остаётся обязательным,
+   * и это проверяется выше: послабление должно касаться только демо.
+   */
+  await page.getByRole('button', { name: /Удалить демо/ }).first().click();
+  await page.waitForSelector('.modal', { timeout: 5_000 });
+  await page.waitForTimeout(300);
+  if ((await page.locator('.modal input[type=text]').count()) > 0) {
+    problems.push('у демо просят набрать слово, хотя удаление ничего не уносит');
+  }
+  if (await page.locator('.modal button.btn--danger').isDisabled()) {
+    problems.push('удаление демо заперто, а отпирать его нечем');
+  }
+  // подложка должна закрывать окно по щелчку мимо: без стилей она этого не умела
+  await page.locator('.modal-scrim').click({ position: { x: 20, y: 20 } });
+  await page.waitForTimeout(300);
+  if ((await page.locator('.modal').count()) > 0) problems.push('щелчок мимо окна его не закрыл');
+
   await page.goto(`${BASE}/accounts/${demo.id}/planner`);
   await page.waitForSelector('.modes', { timeout: 15_000 });
   await page.waitForTimeout(900);
   const dashesInTargets = await page.locator('.targets td.num:has-text("—")').count();
   if (dashesInTargets > 2) problems.push(`нормы демо не посчитались: прочерков ${dashesInTargets}`);
   await shot('demo-planner');
+
+  /*
+   * Полный круг: удалить со страницы выбора и собрать заново.
+   *
+   * Ради него всё и затевалось — демо заводят посмотреть и убирают, когда
+   * посмотрели. Проверяется, что кнопка после удаления возвращается: без этого
+   * человек остаётся на странице, где демо уже нет, а создать его нечем.
+   */
+  await page.goto(`${BASE}/`);
+  await page.waitForSelector('.actions', { timeout: 10_000 });
+  await page.waitForTimeout(500);
+  await page.locator('.actions .drop').click();
+  await page.waitForSelector('.modal', { timeout: 5_000 });
+  await page.locator('.modal button.btn--danger').click();
+  await page.waitForTimeout(2_000);
+
+  const left = await page.evaluate(async () => {
+    const list = await (await fetch('/api/accounts', { credentials: 'include' })).json();
+    return list.filter((item) => item.isDemo).length;
+  });
+  if (left !== 0) problems.push(`после удаления демо осталось ${left} штук`);
+  if ((await page.locator('.actions button:has-text("Создать демо")').count()) === 0) {
+    problems.push('после удаления не вернулась кнопка создания демо');
+  }
+  await shot('demo-deleted');
+
+  // и собирается заново — окружение остаётся с демо, как было до проверки
+  await page.locator('.actions button:has-text("Создать демо")').click();
+  await page.waitForURL(/\/accounts\/[0-9a-f-]{36}$/, { timeout: 60_000 });
+  await page.waitForSelector('.card', { timeout: 20_000 });
+  console.log('демо удалено и собрано заново');
 }
 
 await browser.close();

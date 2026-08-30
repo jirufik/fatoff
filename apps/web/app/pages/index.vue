@@ -58,6 +58,32 @@ async function createDemo(): Promise<void> {
     building.value = false
   }
 }
+
+/*
+ * Удаление демо — отсюда же, где оно создавалось.
+ *
+ * Заходить внутрь аккаунта ради этого незачем: демо заводят, чтобы посмотреть,
+ * и убирают, когда посмотрели. Набранное слово, которым защищено удаление
+ * настоящего аккаунта, здесь лишнее — данные выдуманы и собираются заново одним
+ * нажатием (D-068). Но и молча по щелчку не удаляем: подтверждение есть.
+ */
+const dropping = ref(false)
+const removing = ref(false)
+
+async function removeDemo(): Promise<void> {
+  if (!demo.value) return
+  removing.value = true
+  error.value = ''
+  try {
+    await api.del(`/accounts/${demo.value.id}`)
+    await load()
+  } catch (caught) {
+    error.value = errorMessage(caught)
+  } finally {
+    removing.value = false
+    dropping.value = false
+  }
+}
 </script>
 
 <template>
@@ -69,9 +95,21 @@ async function createDemo(): Promise<void> {
         <p class="lede">{{ t('accounts.lede') }}</p>
       </div>
       <div class="row actions">
-        <NuxtLink v-if="demo" class="btn" :to="`/accounts/${demo.id}`">
-          <AppIcon name="gauge" :size="14" /> {{ t('demo.open') }}
-        </NuxtLink>
+        <template v-if="demo">
+          <NuxtLink class="btn" :to="`/accounts/${demo.id}`">
+            <AppIcon name="gauge" :size="14" /> {{ t('demo.open') }}
+          </NuxtLink>
+          <button
+            class="btn btn--danger drop"
+            :title="t('demo.delete')"
+            :aria-label="t('demo.delete')"
+            :disabled="removing"
+            @click="dropping = true"
+          >
+            <span v-if="removing" class="spinner" />
+            <AppIcon v-else name="trash" :size="14" />
+          </button>
+        </template>
         <button v-else class="btn" :disabled="building" @click="createDemo">
           <span v-if="building" class="spinner" />
           <AppIcon v-else name="gauge" :size="14" />
@@ -137,6 +175,21 @@ async function createDemo(): Promise<void> {
         </div>
       </NuxtLink>
     </div>
+
+    <!-- Подтверждение есть, набранного слова нет: терять тут нечего -->
+    <div v-if="dropping" class="modal-scrim" @click="dropping = false" />
+    <div v-if="dropping" class="modal" role="dialog" aria-modal="true">
+      <h3 style="margin-top: 0">{{ t('demo.delete.title') }}</h3>
+      <p class="tiny muted">{{ t('demo.delete.note') }}</p>
+      <div class="row" style="gap: 0.4rem">
+        <button class="btn btn--danger" :disabled="removing" @click="removeDemo">
+          <span v-if="removing" class="spinner" />
+          <AppIcon v-else name="trash" :size="14" />
+          {{ t('demo.delete') }}
+        </button>
+        <button class="btn" @click="dropping = false">{{ t('common.cancel') }}</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -146,6 +199,12 @@ async function createDemo(): Promise<void> {
   flex: none;
 }
 
+/* корзина рядом с «Открыть демо»: значок без подписи, чтобы не спорил с ней */
+.drop {
+  padding-inline: 0.7rem;
+}
+
+
 @media (max-width: 30rem) {
   /* заголовок и кнопки в одну строку не помещаются: 404 пикселя при 360 */
   .actions {
@@ -154,6 +213,10 @@ async function createDemo(): Promise<void> {
   .actions > * {
     flex: 1;
     justify-content: center;
+  }
+  /* корзине во всю ширину делать нечего: она значок, а не действие первого ряда */
+  .actions > .drop {
+    flex: none;
   }
 }
 </style>
