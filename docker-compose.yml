@@ -40,8 +40,9 @@ services:
         condition: service_healthy
     ports:
       - "4090:4090"
-    # та же сеть, что и у базы, — иначе postgresql не резолвится по имени
-    networks: [fatoff-net]
+    # своя сеть — чтобы резолвился postgresql; общая — чтобы до контейнера
+    # дотянулся туннель, не открывая ни одного порта наружу
+    networks: [fatoff-net, local-gate-net]
     environment:
       NODE_ENV: production
       PORT: 4090
@@ -93,7 +94,12 @@ volumes:
   fatoff-exports:
     name: fatoff-exports
 
-# сеть общая с туннелем: он подключается к ней как внешней
 networks:
   fatoff-net:
     name: fatoff-net
+  # Публикацией наружу заведует отдельный проект local-gate: он держит один
+  # туннель на все локальные сервисы и по своему файлу решает, что и под каким
+  # именем видно. Сюда он приходит по этой общей сети (D-070).
+  local-gate-net:
+    external: true
+    name: local-gate-net
