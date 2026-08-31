@@ -74,12 +74,12 @@ describe('просмотр выгруженного', () => {
     it('отдаёт страницу и общее число под фильтром', async () => {
       const first = await browse.diary(account.id, { pageSize: 5, page: 1 });
       expect(first.items).toHaveLength(5);
-      expect(first.total).toBe(13);
+      expect(first.total).toBe(14);
       expect(first.page).toBe(1);
 
       const last = await browse.diary(account.id, { pageSize: 5, page: 3 });
-      expect(last.items).toHaveLength(3);
-      expect(last.total).toBe(13);
+      expect(last.items).toHaveLength(4);
+      expect(last.total).toBe(14);
     });
 
     it('считает нутриенты по правилам каждого вида записи', async () => {
@@ -136,7 +136,7 @@ describe('просмотр выгруженного', () => {
         const chunk = await browse.diary(account.id, { pageSize: 5, page });
         for (const row of chunk.items) seen.add(`${row.date} ${row.name} ${row.loggedAt}`);
       }
-      expect(seen.size).toBe(13);
+      expect(seen.size).toBe(14);
     });
   });
 
@@ -164,7 +164,7 @@ describe('просмотр выгруженного', () => {
     it('считает, сколько раз продукт встречается в дневнике', async () => {
       const rows = await browse.products(account.id, {});
       const apple = rows.items.find((row) => row.name === 'Яблоко')!;
-      expect(apple.entries).toBe(4);
+      expect(apple.entries).toBe(5);
       expect(apple.energyPerUnit).toBe(0.52);
       expect(apple.lastUsed).toBe('2026-08-10');
     });
