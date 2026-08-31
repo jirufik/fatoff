@@ -11,6 +11,8 @@ import {
   HealthWorkout,
   SyncRun,
 } from '../../src/database/entities';
+import { FULL_DAY_MEALS } from '@fatoff/contracts';
+
 import { JournalService } from '../../src/modules/journal/journal.service';
 import { AccountFactsService } from '../../src/modules/planner/facts.service';
 import { SyncService } from '../../src/modules/sync/sync.service';
@@ -75,6 +77,9 @@ describe('день целиком', () => {
     }
 
     await addHealth(em, account, '2026-08-01');
+    // у 9 августа записаны только завтрак и ужин: расход есть, а день неполный —
+    // на нём и проверяется правило трёх приёмов
+    await addHealth(em, account, '2026-08-09');
     // день, о котором знают только часы: дневника за него нет
     await setBurn(em, account, '2026-07-31', 420, 1310);
   });
@@ -225,6 +230,19 @@ describe('день целиком', () => {
         balance: day.balanceKcal !== null,
       }).toEqual({ date: day.date, eaten: true, spent: true, balance: true });
     }
+  });
+
+  it('«с едой и расходом» требует записанного дня целиком, а не одной записи', async () => {
+    const both = await journal.days(account.id, { pageSize: 100, withBalance: true });
+    const dates = both.items.map((day) => day.date);
+
+    // у 1 августа расход известен и еда есть, но записаны только завтрак и обед:
+    // сравнивать суточный расход с половиной дня нечестно (D-078)
+    expect(dates).not.toContain('2026-08-01');
+    // у 9 августа те же обе половины плюс третий приём — он и остаётся
+    expect(dates).toContain('2026-08-09');
+
+    expect(both.items.every((day) => day.meals >= FULL_DAY_MEALS)).toBe(true);
   });
 
   it('сортирует по белку и держит страницу', async () => {
