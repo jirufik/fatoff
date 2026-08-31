@@ -1155,6 +1155,9 @@ function nextMonday(): string {
                   {{ num(meal.totals.energyKcal) }} / {{ num(meal.targetKcal) }} ккал
                 </span>
               </div>
+              <p v-if="meal.comboFrom" class="tiny muted meal-card__from">
+                {{ t('planner.meal.from', { date: meal.comboFrom }) }}
+              </p>
 
               <ul class="dishes">
                 <li v-for="(item, index) in meal.items" :key="`${item.key}-${index}`" class="dish">
@@ -1576,6 +1579,10 @@ h2 {
   grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
   gap: 0.6rem;
 }
+.meal-card__from {
+  margin: 0.1rem 0 0.2rem;
+}
+
 .meal-card {
   display: flex;
   flex-direction: column;

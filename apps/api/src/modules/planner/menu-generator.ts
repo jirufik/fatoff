@@ -1,8 +1,10 @@
 import {
+  MEAL_SOURCES,
   message,
   type AlgorithmSettingsDto,
   type Message,
   type MacroSetDto,
+  type MealComboDto,
   type MealKey,
   type PlannedItemDto,
   type PlannedMealDto,
@@ -61,6 +63,8 @@ export interface MealSelection {
   shortfalls: Message[];
   /** Сколько первых позиций закреплено человеком. */
   locked: number;
+  /** Комплект, если приём взят из дневника целиком; пусто — собран из блюд. */
+  combo?: MealComboDto | null;
 }
 
 /** Детерминированный генератор: mulberry32, тридцать две строки на воспроизводимость. */
@@ -157,6 +161,164 @@ export function selectMeal(
     shortfalls: checkMeal(target, totals, settings),
     locked: locked.length,
   };
+}
+
+/**
+ * Подбор приёма пищи комплектом.
+ *
+ * Основной путь генератора. Вместо того чтобы набирать обед из четырёх блюд,
+ * которые вместе никто не ел, берётся обед, который она правда съела: тот же
+ * состав, те же пропорции. Подгонка под цель идёт одним коэффициентом на весь
+ * комплект — порция целиком больше или меньше, — и он не выходит за привычные
+ * границы порции.
+ *
+ * Возвращает `null`, когда каталога для этого приёма нет вовсе: тогда зовущий
+ * собирает приём из блюд.
+ */
+export function selectCombo(
+  target: MealTarget,
+  combos: MealComboDto[],
+  byKey: Map<string, PoolItemDto>,
+  settings: AlgorithmSettingsDto,
+  used: Map<string, number>,
+  usedCombos: Map<string, number>,
+): MealSelection | null {
+  const catalogue = combosFor(target.meal, combos);
+  if (catalogue.length === 0) return null;
+
+  // съеденный на неделе комплект берётся снова, только если других не осталось
+  const fresh = catalogue.filter((combo) => !usedCombos.has(combo.key));
+  const considered = fresh.length > 0 ? fresh : catalogue;
+
+  let best: { combo: MealComboDto; items: Chosen[] } | null = null;
+  let bestCost = Number.POSITIVE_INFINITY;
+
+  for (const combo of considered) {
+    for (const factor of factorOptions(combo, target, settings)) {
+      const items = materialize(combo, byKey, factor, settings);
+      if (items.length === 0) continue;
+
+      const repeats = usedCombos.get(combo.key) ?? 0;
+      const cost =
+        costOf(items, target, settings, used, false) +
+        (settings.weights.repeat * repeats) / Math.max(1, settings.maxRepeats);
+
+      if (cost < bestCost - 1e-9) {
+        bestCost = cost;
+        best = { combo, items };
+      }
+    }
+  }
+
+  if (best === null) return null;
+
+  const totals = sum(best.items);
+  return {
+    meal: target.meal,
+    items: best.items,
+    totals,
+    cost: bestCost,
+    shortfalls: checkMeal(target, totals, settings),
+    locked: 0,
+    combo: best.combo,
+  };
+}
+
+/**
+ * Перекус: самый лёгкий из её перекусов.
+ *
+ * У перекуса нет цели по калорийности — у него правило. Всё, что он не съел,
+ * достаётся завтраку, обеду и ужину, поэтому «попасть в долю» ему незачем, а
+ * выбирать есть из чего: разнообразие даёт запрет повторяться в окне, а не
+ * случайность.
+ */
+export function selectLightestCombo(
+  meal: MealKey,
+  combos: MealComboDto[],
+  byKey: Map<string, PoolItemDto>,
+  settings: AlgorithmSettingsDto,
+  usedCombos: Map<string, number>,
+): MealSelection | null {
+  const catalogue = combosFor(meal, combos);
+  if (catalogue.length === 0) return null;
+
+  const fresh = catalogue.filter((combo) => !usedCombos.has(combo.key));
+  const considered = fresh.length > 0 ? fresh : catalogue;
+
+  let best: { combo: MealComboDto; items: Chosen[]; energy: number } | null = null;
+
+  for (const combo of considered) {
+    const items = materialize(combo, byKey, 1, settings);
+    if (items.length === 0) continue;
+
+    const energy = sum(items).energy;
+    // при равной калорийности выигрывает тот, что раньше в каталоге: порядок там
+    // задан частотой и датой, а не случайностью
+    if (best === null || energy < best.energy - 1e-9) best = { combo, items, energy };
+  }
+
+  if (best === null) return null;
+
+  return {
+    meal,
+    items: best.items,
+    totals: sum(best.items),
+    cost: best.energy,
+    shortfalls: [],
+    locked: 0,
+    combo: best.combo,
+  };
+}
+
+/** Комплекты, годные для этого приёма: завтрак только свой, обед и ужин общие. */
+function combosFor(meal: MealKey, combos: MealComboDto[]): MealComboDto[] {
+  const sources = MEAL_SOURCES[meal] ?? [meal];
+  return combos.filter((combo) => sources.includes(combo.meal));
+}
+
+/**
+ * Во сколько раз взять комплект.
+ *
+ * Один коэффициент на все блюда: состав тем и ценен, что съеден вместе, и
+ * менять внутри него пропорции значит собирать заново. Границы те же, что у
+ * отдельной порции, — полтора её обеда это обед, а три уже нет.
+ */
+function factorOptions(
+  combo: MealComboDto,
+  target: MealTarget,
+  settings: AlgorithmSettingsDto,
+): number[] {
+  const options = new Set<number>([1]);
+  const add = (raw: number): void => {
+    if (!Number.isFinite(raw) || raw <= 0) return;
+    options.add(clamp(raw, settings.minPortionFactor, settings.maxPortionFactor));
+  };
+
+  if (combo.totals.energyKcal > 0) add(target.energyKcal / combo.totals.energyKcal);
+  if (combo.totals.proteinG > 0) {
+    add(Math.max(target.proteinG, target.proteinFloorG) / combo.totals.proteinG);
+  }
+
+  return [...options];
+}
+
+/** Комплект в граммовках: блюда пула, умноженные на коэффициент и округлённые. */
+function materialize(
+  combo: MealComboDto,
+  byKey: Map<string, PoolItemDto>,
+  factor: number,
+  settings: AlgorithmSettingsDto,
+): Chosen[] {
+  const items: Chosen[] = [];
+
+  for (const entry of combo.items) {
+    const item = byKey.get(entry.key);
+    // блюдо выпало из пула — комплект больше не собрать, и половинки не берём
+    if (!item) return [];
+    items.push({ item, amount: roundAmount(item, entry.amount * factor, settings) });
+  }
+
+  return items;
 }
 
 /**
@@ -258,6 +420,7 @@ function costOf(
   target: MealTarget,
   settings: AlgorithmSettingsDto,
   used: Map<string, number>,
+  penalizeItems = true,
 ): number {
   const totals = sum(items);
   const weights = settings.weights;
@@ -279,7 +442,9 @@ function costOf(
     cost += (weights.protein * 2 * (target.proteinFloorG - totals.protein)) / target.proteinFloorG;
   }
 
-  cost += (weights.items * items.length) / Math.max(1, settings.maxItemsPerMeal);
+  // состав комплекта выбирали не мы: считать ему позиции значило бы наказывать
+  // её обед за то, что он из четырёх блюд, а не из двух
+  if (penalizeItems) cost += (weights.items * items.length) / Math.max(1, settings.maxItemsPerMeal);
 
   const repeats = items.reduce((count, chosen) => count + (used.get(chosen.item.key) ?? 0), 0);
   cost += (weights.repeat * repeats) / Math.max(1, settings.maxRepeats * settings.maxItemsPerMeal);
@@ -294,15 +459,18 @@ function costOf(
  * увидеть его в наборе. Разнообразие между днями даёт зерно, а не перебор всего
  * пула на каждый приём — на трёх сотнях продуктов это разница в секунды.
  */
-function pickCandidates(
+export function pickCandidates(
   meal: MealKey,
   pool: PoolItemDto[],
   settings: AlgorithmSettingsDto,
   used: Map<string, number>,
   rng: () => number,
 ): PoolItemDto[] {
+  const sources = MEAL_SOURCES[meal] ?? [meal];
   const eligible = pool.filter(
-    (item) => item.meals.includes(meal) && (used.get(item.key) ?? 0) < settings.maxRepeats,
+    (item) =>
+      item.meals.some((source) => sources.includes(source)) &&
+      (used.get(item.key) ?? 0) < settings.maxRepeats,
   );
   if (eligible.length <= CANDIDATE_LIMIT) return eligible;
 
@@ -403,6 +571,7 @@ export function toPlannedMeal(selection: MealSelection, target: MealTarget): Pla
     targetProteinG: round(target.proteinG, 1),
     items,
     totals,
+    comboFrom: selection.combo?.from ?? null,
   };
 }
 

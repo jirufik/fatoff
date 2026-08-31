@@ -343,6 +343,9 @@ const defaultLabel = (spec: SettingSpec): string =>
       <p class="note">
         {{ t('guide.menu.step3.note') }}
       </p>
+      <p class="note">
+        {{ t('guide.menu.fallback') }}
+      </p>
 
       <div class="figure">
         <svg viewBox="0 0 720 190" class="beam" role="img" :aria-label="t('guide.alt.beam')">

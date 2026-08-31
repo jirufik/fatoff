@@ -220,8 +220,18 @@ describe('генератор режима', () => {
     expect(heavy.balanceKcal!).toBe(rest.balanceKcal! - 400);
   });
 
-  it('в тренировочный день целевые калории выше, чем в день отдыха', async () => {
+  it('по умолчанию все дни плана одинаковы по целевым калориям', async () => {
+    // ровные дни — то, что просили (D-074): тренировка цель больше не двигает
     const plan = await planner.generate(account.id, request());
+    const energies = new Set(plan.days.map((day) => day.targets.energyKcal));
+    expect(energies.size).toBe(1);
+  });
+
+  it('включённая прибавка снова поднимает тренировочный день', async () => {
+    const plan = await planner.generate(
+      account.id,
+      request({ targets: { addWorkoutEnergy: true } }),
+    );
     const training = plan.days.find((day) => day.workoutKcal > 0);
     const rest = plan.days.find((day) => day.workouts.length === 0);
 
@@ -230,13 +240,42 @@ describe('генератор режима', () => {
     expect(training!.targets.energyKcal).toBeGreaterThan(rest!.targets.energyKcal ?? 0);
   });
 
-  it('выключенная прибавка уравнивает цели тренировочного дня и дня отдыха', async () => {
-    const plan = await planner.generate(
-      account.id,
-      request({ targets: { addWorkoutEnergy: false } }),
-    );
-    const energies = new Set(plan.days.map((day) => day.targets.energyKcal));
-    expect(energies.size).toBe(1);
+  it('приёмы берутся из дневника целиком, а не собираются из блюд', async () => {
+    const plan = await planner.generate(account.id, request());
+    // перекусов в синтетическом дневнике нет вовсе, и брать их неоткуда:
+    // проверяются те приёмы, для которых каталог есть
+    const meals = plan.days.flatMap((day) => day.meals).filter((meal) => meal.meal !== 'snack');
+
+    expect(meals.length).toBeGreaterThan(0);
+    expect(meals.every((meal) => Boolean(meal.comboFrom))).toBe(true);
+  });
+
+  it('перекус — самый лёгкий приём дня', async () => {
+    const plan = await planner.generate(account.id, request());
+
+    for (const day of plan.days) {
+      const snack = day.meals.find((meal) => meal.meal === 'snack');
+      const main = day.meals.filter((meal) => meal.meal !== 'snack');
+      expect(snack).toBeDefined();
+      expect(snack!.totals.energyKcal ?? 0).toBeLessThanOrEqual(
+        Math.min(...main.map((meal) => meal.totals.energyKcal ?? 0)),
+      );
+    }
+  });
+
+  it('в завтрак не попадает еда обедов и ужинов', async () => {
+    const [plan, pool] = await Promise.all([
+      planner.generate(account.id, request()),
+      planner.pool(account.id, ALGORITHM),
+    ]);
+    const byKey = new Map(pool.map((item) => [item.key, item]));
+
+    for (const day of plan.days) {
+      const breakfast = day.meals.find((meal) => meal.meal === 'breakfast');
+      for (const item of breakfast?.items ?? []) {
+        expect(byKey.get(item.key)?.meals).toContain('breakfast');
+      }
+    }
   });
 
   it('выбор приёмов пищи сокращает день', async () => {
