@@ -90,13 +90,22 @@ export async function readDoc(id) {
  * нам на запись, — можем. Текст уходит как `text/plain` и конвертируется Google
  * обратно в документ.
  */
-export async function writeDoc(id, text) {
+/**
+ * Переписать документ.
+ *
+ * `mime` — чем считать присланное. Простой текст даёт документ без единого
+ * заголовка: читать такое можно, а понять с одного взгляда нельзя. HTML Google
+ * разбирает при загрузке и превращает в настоящий документ — с заголовками (а
+ * значит и с оглавлением сбоку), таблицами, цветом и подсветкой. Заголовки
+ * важнее украшений: по ним человек находит нужный раздел, не читая всего.
+ */
+export async function writeDoc(id, text, mime = 'text/plain') {
   const token = await accessToken();
   const response = await fetch(
     `https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media&fields=id,name,modifiedTime`,
     {
       method: 'PATCH',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'text/plain; charset=UTF-8' },
+      headers: { authorization: `Bearer ${token}`, 'content-type': `${mime}; charset=UTF-8` },
       body: text,
     },
   );
