@@ -39,6 +39,48 @@ page.on('pageerror', (error) => problems.push(`ошибка страницы: ${
 if (SHOTS) await mkdir(SHOTS, { recursive: true });
 const shot = async (name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
 
+/*
+ * Раскрытие дня не двигает страницу под человеком (D-075).
+ *
+ * Раскрыт может быть только один день, поэтому клик по нижнему схлопывает
+ * верхний — и со страницы над пальцем исчезает полторы тысячи пикселей.
+ *
+ * Проверяется с выключенным scroll anchoring: Chrome такой переезд сглаживает
+ * сам, Safari на телефоне — нет, и человек видел именно то, что видит Safari.
+ * Выключив подсказку браузера, проверяем свой код, а не чужой.
+ */
+const staysInPlace = async (where, row, head, target, preOpen = null) => {
+  await page.addStyleTag({ content: '*{overflow-anchor:none}' });
+
+  if (preOpen !== null) {
+    const first = page.locator(row).nth(preOpen);
+    await first.scrollIntoViewIfNeeded();
+    await first.locator(head).first().click();
+    await page.waitForTimeout(1400);
+  }
+
+  const chosen = page.locator(row).nth(target);
+  await chosen.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
+
+  const button = chosen.locator(head).first();
+  const before = (await button.boundingBox())?.y;
+  await button.click();
+  await page.waitForTimeout(1600);
+  const after = (await button.boundingBox())?.y;
+
+  if (before === undefined || after === undefined) {
+    problems.push(`${where}: строку дня не удалось измерить`);
+    return;
+  }
+
+  const shift = Math.round(after - before);
+  console.log(`${where}: строка дня сдвинулась на ${shift} px`);
+  if (Math.abs(shift) > 8) {
+    problems.push(`${where}: при раскрытии строка дня уехала на ${shift} px`);
+  }
+};
+
 await page.goto(`${BASE}/login`);
 await page.fill('input[type=password]', PASSWORD);
 await page.click('button[type=submit]');
@@ -56,6 +98,11 @@ await page.locator('.scope .pill').nth(1).click();
 await page.waitForTimeout(1200);
 await page.waitForSelector('.day', { timeout: 10_000 });
 console.log('дней на странице:', await page.locator('.day').count());
+
+// раскрываем второй день, затем девятый: первый схлопнется выше пальца
+await staysInPlace('журнал', '.day', '.day__head', 8, 1);
+await page.locator('.day').nth(8).locator('.day__head').first().click();
+await page.waitForTimeout(600);
 /*
  * Навигация одна на все страницы аккаунта и стоит на одном месте.
  *
@@ -295,6 +342,16 @@ console.log('целевая калорийность дней:', distinctTargets
 if (distinctTargets.length !== 1) {
   problems.push(`целевая калорийность разъехалась по дням: ${distinctTargets.join(', ')}`);
 }
+
+// первый день раскрыт сразу после сборки, поэтому клик по четвёртому схлопывает
+// его — ровно тот случай, на который жаловались
+await staysInPlace('режим', '.plan-day', '.day__head', 3);
+
+// дальше прогон правит первый день, поэтому возвращаем раскрытым его
+await page.locator('.plan-day').nth(3).locator('.day__head').first().click();
+await page.waitForTimeout(400);
+await page.locator('.plan-day').first().locator('.day__head').first().click();
+await page.waitForTimeout(600);
 
 // ── правка готового плана ───────────────────────────────────────────────────
 const dayKcal = () => page.locator('.plan-day').first().locator('.day__value').nth(1).innerText();
