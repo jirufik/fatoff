@@ -1,8 +1,23 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_ALGORITHM_SETTINGS, type MealKey, type PoolItemDto } from '@fatoff/contracts';
+import {
+  DEFAULT_ALGORITHM_SETTINGS,
+  type MealComboDto,
+  type MealKey,
+  type PoolItemDto,
+} from '@fatoff/contracts';
 
-import { makeRng, selectMeal, sum, toPlannedMeal, type MealTarget } from './menu-generator';
+import { comboTotals } from './food-pool';
+import {
+  makeRng,
+  pickCandidates,
+  selectCombo,
+  selectLightestCombo,
+  selectMeal,
+  sum,
+  toPlannedMeal,
+  type MealTarget,
+} from './menu-generator';
 
 const settings = DEFAULT_ALGORITHM_SETTINGS;
 
@@ -193,5 +208,141 @@ describe('подбор приёма пищи', () => {
 
     const fromItems = planned.items.reduce((total, item) => total + item.energyKcal, 0);
     expect(Math.abs(fromItems - (planned.totals.energyKcal ?? 0))).toBeLessThanOrEqual(planned.items.length);
+  });
+});
+
+describe('из каких приёмов берётся еда', () => {
+  const only = (meal: MealKey): PoolItemDto =>
+    item(
+      `блюдо-${meal}`,
+      { energyKcal: 1.5, proteinG: 0.1, carbsG: 0.15, fatG: 0.03, fiberG: 0.02 },
+      { key: `product:${meal}`, meals: [meal] },
+    );
+
+  /** Пул из трёх блюд: одно только завтрак, одно только обед, одно только ужин. */
+  const three = [only('breakfast'), only('lunch'), only('dinner')];
+
+  const candidates = (meal: MealKey): string[] =>
+    pickCandidates(meal, three, settings, new Map(), makeRng(1))
+      .map((candidate) => candidate.name)
+      .sort();
+
+  it('в завтрак идут только завтраки', () => {
+    expect(candidates('breakfast')).toEqual(['блюдо-breakfast']);
+  });
+
+  it('обед и ужин берут еду друг у друга', () => {
+    expect(candidates('lunch')).toEqual(['блюдо-dinner', 'блюдо-lunch']);
+    expect(candidates('dinner')).toEqual(['блюдо-dinner', 'блюдо-lunch']);
+  });
+
+  it('перекус остаётся при своём', () => {
+    expect(candidates('snack')).toEqual([]);
+  });
+});
+
+describe('подбор комплектом', () => {
+  const byKey = new Map(POOL.map((entry) => [entry.key, entry]));
+
+  const combo = (meal: MealKey, parts: Array<[string, number]>, key = meal): MealComboDto => {
+    const items = parts.map(([name, amount]) => ({ key: `product:${name}`, amount }));
+    return {
+      key: `${meal}:${key}`,
+      meal,
+      from: '2026-08-01',
+      entries: 3,
+      items,
+      totals: comboTotals(items, byKey),
+    };
+  };
+
+  // курица 150 + гречка 100 + брокколи 100 ≈ 392 ккал
+  const dinner = combo('dinner', [['курица', 150], ['гречка', 100], ['брокколи', 100]]);
+  const names = (selection: { items: Array<{ item: PoolItemDto }> }): string[] =>
+    selection.items.map((chosen) => chosen.item.name).sort();
+
+  it('берёт состав целиком, а не собирает свой', () => {
+    const chosen = selectCombo(target(), [dinner], byKey, settings, new Map(), new Map());
+    expect(chosen).not.toBeNull();
+    expect(names(chosen!)).toEqual(['брокколи', 'гречка', 'курица']);
+    expect(chosen!.combo?.from).toBe('2026-08-01');
+  });
+
+  it('завтрак из обедов и ужинов не собирается', () => {
+    expect(
+      selectCombo(target({ meal: 'breakfast' }), [dinner], byKey, settings, new Map(), new Map()),
+    ).toBeNull();
+  });
+
+  it('обед берёт ужин, а ужин — обед', () => {
+    const lunch = combo('lunch', [['курица', 150], ['хлеб', 60]]);
+    expect(selectCombo(target({ meal: 'lunch' }), [dinner], byKey, settings, new Map(), new Map()))
+      .not.toBeNull();
+    expect(selectCombo(target({ meal: 'dinner' }), [lunch], byKey, settings, new Map(), new Map()))
+      .not.toBeNull();
+  });
+
+  it('подгоняет комплект одним коэффициентом и не рвёт пропорции', () => {
+    const chosen = selectCombo(target(), [dinner], byKey, settings, new Map(), new Map())!;
+    const factors = chosen.items.map(
+      (chosenItem, index) => chosenItem.amount / dinner.items[index].amount,
+    );
+
+    // состав тот же, а размер порции один на весь комплект
+    expect(names(chosen)).toEqual(['брокколи', 'гречка', 'курица']);
+    expect(Math.max(...factors) - Math.min(...factors)).toBeLessThan(0.1);
+  });
+
+  it('не растягивает комплект сверх привычной порции', () => {
+    // цель втрое больше комплекта: дальше полутора порций растягивать нечестно
+    const huge = target({ energyKcal: 1500, proteinG: 120, proteinFloorG: 120 });
+    const chosen = selectCombo(huge, [dinner], byKey, settings, new Map(), new Map())!;
+
+    expect(chosen.items.map((item) => item.amount)).toEqual([240, 160, 160]);
+    // и говорит, что не сошлось, а не выдаёт это за попадание
+    expect(chosen.shortfalls.length).toBeGreaterThan(0);
+  });
+
+  it('съеденный на неделе комплект уступает место другому', () => {
+    const other = combo('dinner', [['курица', 140], ['гречка', 110], ['брокколи', 90]], 'второй');
+    const used = new Map([[dinner.key, 1]]);
+    const chosen = selectCombo(target(), [dinner, other], byKey, settings, new Map(), used)!;
+
+    expect(chosen.combo?.key).toBe(other.key);
+  });
+});
+
+describe('перекус', () => {
+  const byKey = new Map(POOL.map((entry) => [entry.key, entry]));
+
+  const snack = (name: string, parts: Array<[string, number]>): MealComboDto => {
+    const items = parts.map(([item, amount]) => ({ key: `product:${item}`, amount }));
+    return {
+      key: `snack:${name}`,
+      meal: 'snack',
+      from: '2026-08-01',
+      entries: 3,
+      items,
+      totals: comboTotals(items, byKey),
+    };
+  };
+
+  const apple = snack('яблоко', [['яблоко', 150]]); // 78 ккал
+  const curd = snack('творог', [['творог', 150]]); // 152 ккал
+  const bread = snack('хлеб', [['хлеб', 60], ['масло', 10]]); // 247 ккал
+  const all = [bread, curd, apple];
+
+  it('берёт самый лёгкий из её перекусов', () => {
+    const chosen = selectLightestCombo('snack', all, byKey, settings, new Map())!;
+    expect(chosen.combo?.key).toBe(apple.key);
+  });
+
+  it('на другой день берёт следующий по лёгкости, а не тот же', () => {
+    const chosen = selectLightestCombo('snack', all, byKey, settings, new Map([[apple.key, 1]]))!;
+    expect(chosen.combo?.key).toBe(curd.key);
+  });
+
+  it('перекусами считает только перекусы', () => {
+    expect(selectLightestCombo('snack', [], byKey, settings, new Map())).toBeNull();
   });
 });

@@ -276,6 +276,26 @@ const mealCards = await page.locator('.meal-card').count();
 if (mealCards === 0) problems.push('день плана вышел без меню');
 await shot('planner-plan');
 
+/*
+ * Комплекты и ровные дни — то, о чём просил заказчик (D-073, D-074).
+ *
+ * Приём берётся из дневника целиком, и под его заголовком стоит день, из
+ * которого взят состав: без этой подписи непонятно, что меню не выдумано.
+ * Целевая калорийность у всех дней плана одна — тренировка её не двигает.
+ */
+const fromLabels = await page.locator('.meal-card__from').count();
+console.log('приёмов взято комплектом:', fromLabels, 'из', mealCards);
+if (fromLabels === 0) problems.push('ни один приём не взят из дневника комплектом');
+
+const dayTargets = await page.locator('.plan-day').evaluateAll((days) =>
+  days.map((day) => day.querySelector('.day__value')?.textContent?.trim() ?? ''),
+);
+const distinctTargets = [...new Set(dayTargets)];
+console.log('целевая калорийность дней:', distinctTargets.join(' | '));
+if (distinctTargets.length !== 1) {
+  problems.push(`целевая калорийность разъехалась по дням: ${distinctTargets.join(', ')}`);
+}
+
 // ── правка готового плана ───────────────────────────────────────────────────
 const dayKcal = () => page.locator('.plan-day').first().locator('.day__value').nth(1).innerText();
 const before = await dayKcal();
@@ -889,6 +909,12 @@ const dashes = await page.locator('.formula').evaluateAll((els) =>
   els.filter((el) => (el.textContent ?? '').includes('—')).length,
 );
 if (dashes > 0) problems.push(`в ${dashes} формулах остались прочерки вместо чисел`);
+
+// правило подбора описано человеку, а не только в коде (D-073)
+const guideText = (await page.locator('main').innerText()).toLowerCase();
+for (const word of ['комплект', 'завтрак', 'перекус']) {
+  if (!guideText.includes(word)) problems.push(`объяснение не говорит про «${word}»`);
+}
 
 await page.locator('.doc-group__head').first().click();
 await page.waitForTimeout(300);

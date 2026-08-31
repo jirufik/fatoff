@@ -17,6 +17,7 @@ import {
   type PlanQuery,
   type SavePlanInput,
   type PoolFilterDto,
+  type MealComboDto,
   type PoolItemDto,
   type RecostRequest,
   type TargetSettingsDto,
@@ -28,7 +29,7 @@ import { addDays, dateRange, daysBetween, today as todayOf } from '../../common/
 import { Account, MealPlan, PlanTemplate } from '../../database/entities';
 
 import { AccountFactsService } from './facts.service';
-import { buildPool, median, type PoolEntry } from './food-pool';
+import { buildCombos, buildPool, median, type PoolEntry } from './food-pool';
 import { assembleDay, buildPlan, mealTargetFor, normalizeShares } from './plan-builder';
 import { dayTargets } from './targets';
 import { sum, type Chosen, type MealSelection } from './menu-generator';
@@ -75,6 +76,21 @@ export class PlannerService {
     over?: Partial<AlgorithmSettingsDto>,
     filter?: PoolFilterDto,
   ): Promise<PoolItemDto[]> {
+    return (await this.catalogue(accountId, over, filter)).pool;
+  }
+
+  /**
+   * Пул и каталог комплектов за один заход.
+   *
+   * Одни и те же записи дневника дают и то и другое, а запрос к базе тяжёлый:
+   * триста дней с разворачиванием массивов. Разделять их значило бы читать
+   * дневник дважды ради одного плана.
+   */
+  private async catalogue(
+    accountId: string,
+    over?: Partial<AlgorithmSettingsDto>,
+    filter?: PoolFilterDto,
+  ): Promise<{ pool: PoolItemDto[]; combos: MealComboDto[] }> {
     const settings = resolveAlgorithm(over);
     const today = filter?.to ?? todayOf();
     const from = filter?.from ?? addDays(today, -Math.round(settings.poolLastUsedMonths * 30.4));
@@ -150,14 +166,18 @@ export class PlannerService {
 
     // при заданном периоде свежесть уже задана самим периодом — второй раз
     // отсеивать по «месяцам назад» значило бы выкинуть то, что человек выбрал
-    const pool = buildPool(
+    const built = buildPool(
       entries,
       filter?.from ? { ...settings, poolLastUsedMonths: 1200 } : settings,
       today,
     );
 
     const keys = filter?.keys;
-    return keys && keys.length > 0 ? pool.filter((item) => keys.includes(item.key)) : pool;
+    const pool = keys && keys.length > 0 ? built.filter((item) => keys.includes(item.key)) : built;
+
+    // каталог строится по уже суженному пулу: отметив набор блюд, человек сузил
+    // и комплекты — приём с блюдом не из набора собирать больше не из чего
+    return { pool, combos: buildCombos(entries, pool) };
   }
 
   // ── генерация ──────────────────────────────────────────────────────────────
@@ -172,11 +192,12 @@ export class PlannerService {
     const algorithm = resolveAlgorithm(request.algorithm);
     const seed = request.seed ?? Math.floor(Math.random() * 2 ** 31);
 
-    const [targets, pool, profile] = await Promise.all([
+    const [targets, catalogue, profile] = await Promise.all([
       this.targets(accountId, request.targets),
-      this.pool(accountId, request.algorithm, request.pool),
+      this.catalogue(accountId, request.algorithm, request.pool),
       this.trainingProfile(accountId),
     ]);
+    const { pool, combos } = catalogue;
 
     const dates = dateRange(request.from, request.to);
     const meals = (request.meals?.length ? request.meals : [...MEALS]) as MealKey[];
@@ -197,6 +218,7 @@ export class PlannerService {
       algorithm,
       meals,
       pool,
+      combos,
       training,
       pinned: request.pinned,
       seed,

@@ -9,6 +9,7 @@ import {
   type PinnedDto,
   type PlannedWorkoutDto,
   type MacroSetDto,
+  type MealComboDto,
   type MealKey,
   type PlanDayDto,
   type PlanSummaryDto,
@@ -21,9 +22,12 @@ import {
 import { EA_THRESHOLD, dayTargets } from './targets';
 import {
   makeRng,
+  selectCombo,
+  selectLightestCombo,
   selectMeal,
   toPlannedMeal,
   zero,
+  type Chosen,
   type MealSelection,
   type MealTarget,
   type Totals,
@@ -51,6 +55,8 @@ export interface BuildPlanInput {
   algorithm: AlgorithmSettingsDto;
   meals: MealKey[];
   pool: PoolItemDto[];
+  /** Каталог комплектов: из него и собираются приёмы пищи. */
+  combos: MealComboDto[];
   training: TrainingPlan;
   pinned?: PinnedDto[];
   seed: number;
@@ -73,8 +79,15 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
     warnings.push(message('plan.empty-pool'));
   }
 
+  const byKey = new Map(input.pool.map((item) => [item.key, item]));
+
+  // перекус в раздаче долей не участвует: он минимальный, и остаток дня делят
+  // между собой основные приёмы — это и просили (D-074)
+  const mainMeals = meals.filter((meal) => meal !== 'snack');
+  const mainShares = normalizeShares(mainMeals, input.targetSettings);
+
   /** Что уже съедено за последние дни — окно разнообразия скользит по датам. */
-  const history: Array<{ date: string; keys: string[] }> = [];
+  const history: Array<{ date: string; keys: string[]; combos: string[] }> = [];
   const days: PlanDayDto[] = [];
 
   for (const date of input.dates) {
@@ -82,29 +95,77 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
     const workoutKcal = workouts.reduce((sum, workout) => sum + workout.energyKcal, 0);
     const targets = dayTargets(input.targets.computed, input.targetSettings, workoutKcal);
 
-    const used = usedWithin(history, date, input.algorithm.varietyWindowDays);
-    const selections: MealSelection[] = [];
-    const mealTargets: MealTarget[] = [];
+    const window = input.algorithm.varietyWindowDays;
+    const used = usedWithin(history, date, window, (day) => day.keys);
+    const usedCombos = usedWithin(history, date, window, (day) => day.combos);
 
-    for (const meal of meals) {
-      const target = mealTargetFor(meal, targets, shares[meal] ?? 0, input.targets.proteinPerMealG);
-      const selection = selectMeal(
-        target,
-        input.pool,
-        input.algorithm,
-        used,
-        rng,
-        pinnedFor(input.pinned, input.pool, date, meal),
-      );
+    const chosenByMeal = new Map<MealKey, MealSelection>();
+    const targetByMeal = new Map<MealKey, MealTarget>();
 
-      mealTargets.push(target);
-      selections.push(selection);
+    const take = (selection: MealSelection, target: MealTarget): void => {
+      chosenByMeal.set(target.meal, selection);
+      targetByMeal.set(target.meal, target);
       for (const chosen of selection.items) {
         used.set(chosen.item.key, (used.get(chosen.item.key) ?? 0) + 1);
       }
+      if (selection.combo) {
+        usedCombos.set(selection.combo.key, (usedCombos.get(selection.combo.key) ?? 0) + 1);
+      }
+    };
+
+    /*
+     * Перекус выбирается первым и по своему правилу — самый лёгкий из её
+     * перекусов. Порядок здесь и есть смысл: сколько он не взял, столько
+     * достанется завтраку, обеду и ужину.
+     */
+    let remaining = targets;
+    if (meals.includes('snack')) {
+      const pinned = pinnedFor(input.pinned, input.pool, date, 'snack');
+      const lightest =
+        pinned.length === 0
+          ? selectLightestCombo('snack', input.combos, byKey, input.algorithm, usedCombos)
+          : null;
+
+      if (lightest) {
+        take(lightest, targetOf('snack', lightest.totals));
+      } else {
+        const target = mealTargetFor('snack', targets, shares.snack ?? 0, null);
+        take(selectMeal(target, input.pool, input.algorithm, used, rng, pinned), target);
+      }
+
+      remaining = without(targets, chosenByMeal.get('snack')?.totals ?? zero());
     }
 
-    repairFiber(selections, mealTargets, targets, input, used, rng);
+    /*
+     * Основные приёмы считают остаток по очереди, а не делят день сразу.
+     * Комплект берётся целиком, и точно в долю он попадает не всегда; если
+     * недобор завтрака не отдать обеду, он к вечеру превратится в недобор дня
+     * — а дни просили ровные.
+     */
+    let unshared = mainMeals.reduce((total, meal) => total + (mainShares[meal] ?? 0), 0);
+
+    for (const meal of mainMeals) {
+      const share = mainShares[meal] ?? 0;
+      const target = mealTargetFor(
+        meal,
+        remaining,
+        unshared > 0 ? share / unshared : 0,
+        input.targets.proteinPerMealG,
+      );
+
+      const selection = chooseMeal(target, input, input.algorithm, byKey, used, usedCombos, rng, date);
+      take(selection, target);
+
+      remaining = without(remaining, selection.totals);
+      unshared -= share;
+    }
+
+    // порядок в дне — заданный набором приёмов, а не тем, в каком считали
+    const order = meals.filter((meal) => chosenByMeal.has(meal));
+    const selections = order.map((meal) => chosenByMeal.get(meal) as MealSelection);
+    const mealTargets = order.map((meal) => targetByMeal.get(meal) as MealTarget);
+
+    repairFiber(selections, mealTargets, targets, input, used, usedCombos, byKey, rng, date);
 
     days.push(
       assembleDay({
@@ -122,7 +183,11 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
       }),
     );
 
-    history.push({ date, keys: selections.flatMap((s) => s.items.map((i) => i.item.key)) });
+    history.push({
+      date,
+      keys: selections.flatMap((s) => s.items.map((i) => i.item.key)),
+      combos: selections.flatMap((s) => (s.combo ? [s.combo.key] : [])),
+    });
   }
 
   return { days, summary: summarize(days), warnings };
@@ -274,52 +339,142 @@ function repairFiber(
   dayTarget: MacroSetDto,
   input: BuildPlanInput,
   used: Map<string, number>,
+  usedCombos: Map<string, number>,
+  byKey: Map<string, PoolItemDto>,
   rng: () => number,
+  date: string,
 ): void {
   const want = dayTarget.fiberG;
   if (want === null || want <= 0) return;
-
-  const before = totalsOf(selections).fiber;
-  if (before >= want * FIBER_REPAIR_FLOOR) return;
-
-  const index = selections.reduce(
-    (worst, selection, i) =>
-      targets[i].fiberG - selection.totals.fiber > targets[worst].fiberG - selections[worst].totals.fiber
-        ? i
-        : worst,
-    0,
-  );
+  if (totalsOf(selections).fiber >= want * FIBER_REPAIR_FLOOR) return;
 
   const boosted: AlgorithmSettingsDto = {
     ...input.algorithm,
     weights: { ...input.algorithm.weights, fiber: input.algorithm.weights.fiber * FIBER_REPAIR_BOOST },
   };
 
-  // прежний выбор не должен мешать сам себе: считаем повторы без него
-  const without = new Map(used);
-  for (const chosen of selections[index].items) {
-    const count = (without.get(chosen.item.key) ?? 1) - 1;
-    if (count > 0) without.set(chosen.item.key, count);
-    else without.delete(chosen.item.key);
-  }
+  /*
+   * Перебираются все основные приёмы, а не один самый провальный. Комплект
+   * берётся целиком, и клетчатку в нём не «дособрать»: единственный ход —
+   * поменять весь приём на другой. Одного такого хода на день хватало, пока
+   * приёмы собирались из блюд; теперь может не хватить, а недобор клетчатки —
+   * самый широкий разрыв в её питании (§ 2.2 анализа).
+   *
+   * Перекус в переборе не участвует: у него правило «самый лёгкий», а не цель
+   * по числам, и подъём клетчатки превратил бы его в четвёртый приём пищи.
+   */
+  const order = selections
+    .map((_, index) => index)
+    .filter((index) => selections[index].meal !== 'snack')
+    .sort(
+      (a, b) =>
+        targets[b].fiberG - selections[b].totals.fiber -
+        (targets[a].fiberG - selections[a].totals.fiber),
+    );
 
-  const retry = selectMeal(targets[index], input.pool, boosted, without, rng);
-  const after = totalsOf([...selections.slice(0, index), retry, ...selections.slice(index + 1)]);
-  const tolerance = (targets[index].energyKcal * input.algorithm.energyTolerancePct) / 100;
+  for (const index of order) {
+    const before = totalsOf(selections).fiber;
+    if (before >= want * FIBER_REPAIR_FLOOR) return;
 
-  const better =
-    after.fiber > before &&
-    Math.abs(retry.totals.energy - targets[index].energyKcal) <= Math.max(tolerance, 1);
+    // прежний выбор не должен мешать сам себе: считаем повторы без него
+    const usedElsewhere = new Map(used);
+    for (const chosen of selections[index].items) forget(usedElsewhere, chosen.item.key);
+    const combosElsewhere = new Map(usedCombos);
+    if (selections[index].combo) forget(combosElsewhere, selections[index].combo.key);
 
-  if (better) {
-    for (const chosen of selections[index].items) {
-      const count = (used.get(chosen.item.key) ?? 1) - 1;
-      if (count > 0) used.set(chosen.item.key, count);
-      else used.delete(chosen.item.key);
-    }
+    const retry = chooseMeal(
+      targets[index],
+      input,
+      boosted,
+      byKey,
+      usedElsewhere,
+      combosElsewhere,
+      rng,
+      date,
+    );
+    const after = totalsOf([...selections.slice(0, index), retry, ...selections.slice(index + 1)]);
+    const tolerance = (targets[index].energyKcal * input.algorithm.energyTolerancePct) / 100;
+
+    const better =
+      after.fiber > before &&
+      Math.abs(retry.totals.energy - targets[index].energyKcal) <= Math.max(tolerance, 1);
+    if (!better) continue;
+
+    for (const chosen of selections[index].items) forget(used, chosen.item.key);
+    if (selections[index].combo) forget(usedCombos, selections[index].combo.key);
+
     for (const chosen of retry.items) used.set(chosen.item.key, (used.get(chosen.item.key) ?? 0) + 1);
+    if (retry.combo) usedCombos.set(retry.combo.key, (usedCombos.get(retry.combo.key) ?? 0) + 1);
+
     selections[index] = retry;
   }
+}
+
+/** Забыть одно использование ключа: ноль означает «не встречался», а не «встречался нисколько». */
+function forget(counts: Map<string, number>, key: string): void {
+  const count = (counts.get(key) ?? 1) - 1;
+  if (count > 0) counts.set(key, count);
+  else counts.delete(key);
+}
+
+/**
+ * Приём пищи: комплектом, если есть из чего, и из блюд, если нет.
+ *
+ * Комплект — основной путь (D-073). Поблюдная сборка остаётся на два случая:
+ * каталог этого приёма пуст и человек закрепил в приёме блюдо. Закрепление
+ * прямее любого правила, и рвать ради него чужой готовый состав нельзя.
+ */
+function chooseMeal(
+  target: MealTarget,
+  input: BuildPlanInput,
+  settings: AlgorithmSettingsDto,
+  byKey: Map<string, PoolItemDto>,
+  used: Map<string, number>,
+  usedCombos: Map<string, number>,
+  rng: () => number,
+  date: string,
+): MealSelection {
+  const pinned: Chosen[] = pinnedFor(input.pinned, input.pool, date, target.meal);
+
+  if (pinned.length === 0) {
+    const combo = selectCombo(target, input.combos, byKey, settings, used, usedCombos);
+    if (combo) return combo;
+  }
+
+  return selectMeal(target, input.pool, settings, used, rng, pinned);
+}
+
+/**
+ * Цель приёма, у которого её нет.
+ *
+ * У перекуса задача не «попасть в долю», а «быть самым лёгким». Нарисовать
+ * рядом с ним долю от дня значило бы показать промах там, где промаха нет:
+ * его цель — то, чем он и оказался.
+ */
+function targetOf(meal: MealKey, totals: Totals): MealTarget {
+  return {
+    meal,
+    energyKcal: totals.energy,
+    proteinG: totals.protein,
+    carbsG: totals.carbs,
+    fatG: totals.fat,
+    fiberG: totals.fiber,
+    proteinFloorG: 0,
+  };
+}
+
+/** Остаток дня после перекуса: его и делят между собой основные приёмы. */
+function without(targets: MacroSetDto, totals: Totals): MacroSetDto {
+  const left = (value: number | null, taken: number): number | null =>
+    value === null ? null : Math.max(0, round(value - taken, 1));
+
+  return {
+    energyKcal: left(targets.energyKcal, totals.energy),
+    proteinG: left(targets.proteinG, totals.protein),
+    carbsG: left(targets.carbsG, totals.carbs),
+    fatG: left(targets.fatG, totals.fat),
+    fiberG: left(targets.fiberG, totals.fiber),
+  };
 }
 
 /** Доли приёмов пищи, нормированные на выбранный набор: сумма всегда единица. */
@@ -333,18 +488,24 @@ export function normalizeShares(meals: MealKey[], settings: TargetSettingsDto): 
   return shares;
 }
 
-/** Повторы в окне: сколько раз каждый продукт встречался за последние дни. */
-function usedWithin(
-  history: Array<{ date: string; keys: string[] }>,
+/**
+ * Повторы в окне: сколько раз каждый ключ встречался за последние дни.
+ *
+ * Ключи считаются двух видов — блюда и комплекты, — и правило у них одно,
+ * поэтому берётся не два счётчика, а один с выбором того, что считать.
+ */
+function usedWithin<T extends { date: string }>(
+  history: T[],
   date: string,
   windowDays: number,
+  pick: (day: T) => string[],
 ): Map<string, number> {
   const used = new Map<string, number>();
   const from = shiftDate(date, -(windowDays - 1));
 
   for (const day of history) {
     if (day.date < from) continue;
-    for (const key of day.keys) used.set(key, (used.get(key) ?? 0) + 1);
+    for (const key of pick(day)) used.set(key, (used.get(key) ?? 0) + 1);
   }
   return used;
 }

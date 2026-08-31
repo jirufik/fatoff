@@ -14,6 +14,21 @@ export const MEAL_TITLES: Record<MealKey, Text> = {
 /** Основные приёмы: к ним применяется порог белка 0.4 г/кг. */
 export const MAIN_MEALS: readonly MealKey[] = ['breakfast', 'lunch', 'dinner'];
 
+/**
+ * Из каких приёмов дневника можно брать еду для этого приёма.
+ *
+ * Завтрак собирается только из завтраков: то, что она ест утром, и то, что
+ * вечером, — разная еда, и смешивать их она не просила. Обед и ужин, наоборот,
+ * взаимозаменяемы — вчерашний ужин отлично работает сегодняшним обедом
+ * (D-073). Перекус остаётся при себе.
+ */
+export const MEAL_SOURCES: Record<MealKey, readonly MealKey[]> = {
+  breakfast: ['breakfast'],
+  lunch: ['lunch', 'dinner'],
+  dinner: ['lunch', 'dinner'],
+  snack: ['snack'],
+};
+
 export type BalanceState = 'deficit' | 'even' | 'surplus';
 
 /**

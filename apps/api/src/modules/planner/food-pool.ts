@@ -1,4 +1,10 @@
-import type { AlgorithmSettingsDto, MealKey, PerUnitDto, PoolItemDto } from '@fatoff/contracts';
+import type {
+  AlgorithmSettingsDto,
+  MealComboDto,
+  MealKey,
+  PerUnitDto,
+  PoolItemDto,
+} from '@fatoff/contracts';
 
 /**
  * Пул продуктов: из чего генератору вообще выбирать.
@@ -79,6 +85,133 @@ export function buildPool(entries: PoolEntry[], settings: PoolSettings, today: s
 
   // самые частые впереди: при отборе кандидатов вес даёт именно частота
   return pool.sort((a, b) => b.entries - a.entries || a.name.localeCompare(b.name, 'ru'));
+}
+
+/** Комплект легче этого — обрывок записи, а не приём пищи. */
+const MIN_COMBO_KCAL = 50;
+
+/**
+ * Каталог комплектов: приёмы пищи из дневника, взятые целиком.
+ *
+ * Блюдо в комплекте обязано пройти в пул. Приём, половина которого съедена
+ * один раз в жизни, повторять незачем: комплект — это «она такое ела», а не
+ * «такое однажды случилось». Из-за этого правила каталог меньше дневника
+ * примерно вчетверо, и всё равно остаётся из чего выбирать.
+ *
+ * Одинаковые составы схлопываются в один комплект, а граммовка берётся
+ * медианой по повторам — по той же причине, что и у отдельного блюда.
+ */
+export function buildCombos(entries: PoolEntry[], pool: PoolItemDto[]): MealComboDto[] {
+  const byKey = new Map(pool.map((item) => [item.key, item]));
+
+  /** Записи одного приёма одного дня. */
+  const logged = new Map<string, PoolEntry[]>();
+  for (const entry of entries) {
+    if (!Number.isFinite(entry.amount) || entry.amount <= 0) continue;
+    const id = `${entry.date}|${entry.meal}`;
+    const list = logged.get(id) ?? [];
+    list.push(entry);
+    logged.set(id, list);
+  }
+
+  interface Shape {
+    meal: MealKey;
+    from: string;
+    count: number;
+    amounts: Map<string, number[]>;
+  }
+  const shapes = new Map<string, Shape>();
+
+  for (const list of logged.values()) {
+    // одно блюдо могло попасть в приём двумя записями — это одна позиция
+    const amounts = new Map<string, number>();
+    let whole = true;
+    for (const entry of list) {
+      if (!byKey.has(entry.key)) {
+        whole = false;
+        break;
+      }
+      amounts.set(entry.key, (amounts.get(entry.key) ?? 0) + entry.amount);
+    }
+    if (!whole || amounts.size === 0) continue;
+
+    const meal = list[0].meal as MealKey;
+    const date = list[0].date;
+    const id = `${meal}:${fingerprint([...amounts.keys()])}`;
+
+    const shape = shapes.get(id) ?? { meal, from: date, count: 0, amounts: new Map() };
+    shape.count += 1;
+    if (date > shape.from) shape.from = date;
+    for (const [key, amount] of amounts) {
+      const values = shape.amounts.get(key) ?? [];
+      values.push(amount);
+      shape.amounts.set(key, values);
+    }
+    shapes.set(id, shape);
+  }
+
+  const combos: MealComboDto[] = [];
+  for (const [key, shape] of shapes) {
+    const items = [...shape.amounts]
+      .map(([itemKey, values]) => ({ key: itemKey, amount: round(median(values), 1) }))
+      .filter((item) => item.amount > 0)
+      .sort((a, b) => a.key.localeCompare(b.key));
+
+    if (items.length === 0) continue;
+
+    const totals = comboTotals(items, byKey);
+    if (totals.energyKcal < MIN_COMBO_KCAL) continue;
+
+    combos.push({ key, meal: shape.meal, from: shape.from, entries: shape.count, items, totals });
+  }
+
+  // порядок задаётся здесь, а не случайностью: при равной оценке выигрывает то,
+  // что она ела чаще и позже
+  return combos.sort(
+    (a, b) => b.entries - a.entries || b.from.localeCompare(a.from) || a.key.localeCompare(b.key),
+  );
+}
+
+/** КБЖУ комплекта: сумма блюд с их граммовками. */
+export function comboTotals(
+  items: Array<{ key: string; amount: number }>,
+  byKey: Map<string, PoolItemDto>,
+  factor = 1,
+): PerUnitDto {
+  const totals: PerUnitDto = { energyKcal: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0 };
+
+  for (const { key, amount } of items) {
+    const item = byKey.get(key);
+    if (!item) continue;
+    const taken = amount * factor;
+    totals.energyKcal += item.per.energyKcal * taken;
+    totals.proteinG += item.per.proteinG * taken;
+    totals.carbsG += item.per.carbsG * taken;
+    totals.fatG += item.per.fatG * taken;
+    totals.fiberG += item.per.fiberG * taken;
+  }
+
+  return totals;
+}
+
+/**
+ * Отпечаток состава.
+ *
+ * Ключи блюд — длинные идентификаторы, и склейка четырёх таких в ключ комплекта
+ * ехала бы наружу строкой в двести знаков. FNV-1a даёт восемь: столкновений на
+ * шести сотнях составов не бывает, а порядок блюд на отпечаток не влияет.
+ */
+function fingerprint(keys: string[]): string {
+  let hash = 0x811c9dc5;
+  for (const key of [...keys].sort()) {
+    for (let i = 0; i < key.length; i++) {
+      hash ^= key.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    hash ^= 0x7c; // «|» между ключами: «аб»+«в» и «а»+«бв» — разные составы
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
 /**
