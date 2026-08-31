@@ -689,7 +689,7 @@ export const EN: Record<string, string> = {
   "journal.scope.both": "with food and spend",
   "journal.scope.all.note": "Everything in the database, including days with nothing recorded.",
   "journal.scope.food.note": "Days with at least one thing logged as eaten.",
-  "journal.scope.both.note": "Days where both are known: how much was eaten (YAZIO) and how much was spent (Apple Health). Only these have a balance.",
+  "journal.scope.both.note": "Days recorded in full: both what was eaten (YAZIO) and what was spent (Apple Health) are known, and at least {count} meals are logged. Only such days have a balance — and only theirs can be trusted: the watch measured a whole day of spending, and weighing that against a single logged breakfast is not fair.",
   "sync.progress.count": "{done} / {total} days · {requests} requests",
   "sync.cancel.note": "Cancelling takes effect between days; a request already in flight is not cut off.",
   "sync.history.empty": "No sync has been run yet.",

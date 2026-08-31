@@ -265,6 +265,34 @@ console.log('дней с обеими половинами на странице
 if (bothShown === 0) problems.push('фильтр «обе половины» не оставил ни одного дня');
 if (withoutBalance > 0) problems.push(`среди отобранных дней ${withoutBalance} без баланса`);
 if (!daysAll) problems.push('не нашлось счётчика дней до фильтра');
+
+/*
+ * Порог приёмов пищи назван человеку теми же числами, что стоят в коде (D-078).
+ *
+ * Само правило стережёт интеграционный тест: там есть день с известным расходом
+ * и двумя приёмами, и он обязан выпасть. Здесь проверяется другое — что подпись
+ * под отбором осталась на месте и число в ней настоящее, а не забытая строка про
+ * «обе половины». Подпись собирается подстановкой из той же константы, что и
+ * условие в запросе, поэтому разойтись они могут только вместе с этой проверкой.
+ */
+const scopeNote = await page.locator('.scope-note, .scope + p, .row + .tiny').first().innerText()
+  .catch(() => '');
+const noteText = scopeNote || (await page.locator('main').innerText());
+if (!/не меньше 3/.test(noteText)) {
+  problems.push('подпись под отбором не называет порог в три приёма пищи');
+}
+
+// день целиком — это три приёма: раскрываем первый и считаем
+await page.locator('.day').first().locator('.day__head').click();
+await page.waitForTimeout(1500);
+const mealsInDay = await page.locator('.day__body .meal').count();
+console.log('приёмов пищи в отобранном дне:', mealsInDay);
+if (mealsInDay > 0 && mealsInDay < 3) {
+  problems.push(`в отобранном дне приёмов пищи ${mealsInDay}, а отбор обещает не меньше трёх`);
+}
+await page.locator('.day').first().locator('.day__head').click();
+await page.waitForTimeout(500);
+
 await shot('journal-balance');
 
 // ── режим ───────────────────────────────────────────────────────────────────

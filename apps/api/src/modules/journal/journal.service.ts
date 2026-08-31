@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 
 import {
   BALANCE_EVEN_KCAL,
+  FULL_DAY_MEALS,
   MEALS,
   type BalanceState,
   type JournalDayDetailDto,
@@ -423,17 +424,23 @@ function balanceState(balance: number | null): BalanceState | null {
 }
 
 /**
- * Отбор дней: пусто, еда, или обе половины сразу.
+ * Отбор дней: пусто, еда, или день целиком.
  *
- * «Обе половины» — это `entries > 0 and out_kcal is not null`: только там
- * известен и приход, и расход, а значит, у дня есть баланс. Ради него всё и
- * делалось, а без фильтра такие дни приходилось выискивать глазами среди
- * пустых.
+ * «День целиком» — это известный приход, известный расход и не меньше трёх
+ * записанных приёмов пищи. Первые два условия дают балансу обе половины, третье
+ * — право этому балансу верить: расход часы намеряли за сутки, и сравнивать его
+ * с одним записанным завтраком нечестно (D-078).
+ *
+ * Порог подставляется в текст запроса, а не параметром: это константа кода, а
+ * не ввод человека, и именованных подстановок MikroORM всё равно не понимает.
  */
 function where(query: { withFood?: boolean; withBalance?: boolean }): string {
   const conditions: string[] = [];
   if (query.withFood || query.withBalance) conditions.push('entries > 0');
-  if (query.withBalance) conditions.push('out_kcal is not null');
+  if (query.withBalance) {
+    conditions.push('out_kcal is not null');
+    conditions.push(`meals >= ${FULL_DAY_MEALS}`);
+  }
   return conditions.length === 0 ? '' : `where ${conditions.join(' and ')}`;
 }
 

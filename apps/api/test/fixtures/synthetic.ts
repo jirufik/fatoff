@@ -238,6 +238,9 @@ const days: Record<string, FakeDay> = {
       products: [
         entry('e11', 'p-apple', '2026-08-09', '08:00:00', 'breakfast', 150, 'piece', 1),
         entry('e12', 'p-bread', '2026-08-09', '19:00:00', 'dinner', 120),
+        // третий приём делает день «записанным целиком»: отбор «с едой и расходом»
+        // требует не меньше трёх приёмов (D-078)
+        entry('e14', 'p-apple', '2026-08-09', '16:20:00', 'snack', 80),
       ],
       recipe_portions: [],
       simple_products: [],

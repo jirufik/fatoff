@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  FULL_DAY_MEALS,
   MEAL_TITLES,
   unitLabel,
   workoutTitle,
@@ -232,7 +233,7 @@ const BALANCE_TONE: Record<string, string> = {
             type="button"
             role="radio"
             :aria-checked="scope === item"
-            :title="t(`journal.scope.${item}.note`)"
+            :title="t(`journal.scope.${item}.note`, { count: FULL_DAY_MEALS })"
             @click="scope = item"
           >
             {{ t(`journal.scope.${item}`) }}
@@ -258,7 +259,7 @@ const BALANCE_TONE: Record<string, string> = {
            недоступна вовсе, а угадывать разницу между кнопками не должно быть
            нужно -->
       <p class="tiny muted filters__note">
-        {{ t(`journal.scope.${scope}.note`) }}
+        {{ t(`journal.scope.${scope}.note`, { count: FULL_DAY_MEALS }) }}
         <template v-if="sort"> {{ t('journal.sort.note') }}</template>
       </p>
     </div>
