@@ -27,7 +27,7 @@ export const DEFAULT_TARGET_SETTINGS: TargetSettingsDto = {
   fatPerKg: 0.9,
   fiberPer1000Kcal: 14,
   proteinPerMealPerKg: 0.4,
-  addWorkoutEnergy: true,
+  addWorkoutEnergy: false,
   energyOverrideKcal: null,
   mealShares: DEFAULT_MEAL_SHARES,
 };
@@ -201,11 +201,11 @@ export const PLANNER_SETTINGS: SettingSpec[] = [
   {
     key: 'targets.addWorkoutEnergy',
     title: {"ru": "Добавлять энергию тренировки", "en": "Add the training energy"},
-    description: {"ru": "В тренировочные дни прибавлять к целевым калориям то, что потрачено на тренировке. Без этого в дни с часовой пробежкой дефицит удваивается — именно это роняет энергодоступность.", "en": "On training days, add what the session burned to the calorie target. Without it the deficit doubles on days with an hour’s run — and that is exactly what sinks energy availability."},
+    description: {"ru": "В тренировочные дни прибавлять к целевым калориям то, что потрачено на тренировке. Выключено: все дни плана одинаковы по калорийности. Включите, если в дни с часовой тренировкой хочется есть больше — иначе дефицит в такой день удваивается, и день помечается низкой энергодоступностью.", "en": "On training days, add what the session burned to the calorie target. Off by default: every day of the plan carries the same calories. Turn it on if training days should be bigger — otherwise the deficit doubles on those days and the day is flagged for low energy availability."},
     group: 'targets',
     kind: 'toggle',
     unit: null,
-    default: true,
+    default: false,
     source: {"ru": "Консенсус МОК по RED-S: порог низкой энергодоступности 30 ккал/кг БЖМ", "en": "IOC consensus on RED-S: the low-energy-availability threshold is 30 kcal/kg FFM"},
     sourceUrl: 'https://pubmed.ncbi.nlm.nih.gov/29773536/',
   },

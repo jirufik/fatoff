@@ -205,6 +205,9 @@ const pdfHref = computed(
               {{ num(meal.totals.energyKcal) }} / {{ num(meal.targetKcal) }} {{ t('common.kcal') }}
             </span>
           </div>
+          <p v-if="meal.comboFrom" class="tiny muted meal__from">
+            {{ t('planner.meal.from', { date: meal.comboFrom }) }}
+          </p>
           <ul class="items">
             <li v-for="item in meal.items" :key="item.key">
               <span class="items__name">{{ item.name }}</span>
@@ -274,6 +277,10 @@ h2 {
   border-top: 1px solid var(--line-soft);
   padding-top: 0.5rem;
 }
+.meal__from {
+  margin: 0.1rem 0 0.3rem;
+}
+
 .meal__head {
   display: flex;
   flex-wrap: wrap;

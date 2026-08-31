@@ -55,20 +55,24 @@ await RequestContext.create(em, async () => {
   console.timeEnd('неделя');
 
   console.log('\nсводка:', plan.summary);
-  console.log('предупреждения плана:', plan.warnings);
+  console.log('предупреждения плана:', plan.warnings.map((x) => x.code));
 
   for (const day of plan.days) {
-    const w = day.workouts.map((x) => `${x.title} ${x.durationMin}м/${x.energyKcal}ккал`).join(', ') || 'отдых';
+    const w = day.workouts.map((x) => `${x.type} ${x.durationMin}м/${x.energyKcal}ккал`).join(', ') || 'отдых';
     console.log(`\n${day.date} (${['','пн','вт','ср','чт','пт','сб','вс'][day.weekday]}) — ${w}`);
     console.log(`  цель ${day.targets.energyKcal} ккал / Б${day.targets.proteinG} У${day.targets.carbsG} Ж${day.targets.fatG} К${day.targets.fiberG}`);
     console.log(`  итог ${day.totals.energyKcal} ккал / Б${day.totals.proteinG} У${day.totals.carbsG} Ж${day.totals.fatG} К${day.totals.fiberG}, EA ${day.energyAvailability}`);
     for (const meal of day.meals) {
-      console.log(`   ${meal.title} (цель ${meal.targetKcal}): ${meal.totals.energyKcal} ккал, Б${meal.totals.proteinG}`);
+      // сервер фраз не сочиняет (D-044): здесь печатается ключ, а не подпись
+      const from = meal.comboFrom ? `комплект от ${meal.comboFrom}` : 'собран из блюд';
+      console.log(`   ${meal.meal} (цель ${meal.targetKcal}, ${from}): ${meal.totals.energyKcal} ккал, Б${meal.totals.proteinG}`);
       for (const item of meal.items) {
         console.log(`     — ${item.name.slice(0, 40)} ${item.amount} ${item.unit}: ${item.energyKcal} ккал Б${item.proteinG}`);
       }
     }
-    if (day.warnings.length) console.log('   ! ' + day.warnings.join('\n   ! '));
+    if (day.warnings.length) {
+      console.log('   ! ' + day.warnings.map((x) => `${x.code} ${JSON.stringify(x.params)}`).join('\n   ! '));
+    }
   }
 
   // повторяемость: то же зерно — тот же план

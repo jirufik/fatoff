@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_ALGORITHM_SETTINGS } from '@fatoff/contracts';
 
-import { buildPool, median, type PoolEntry } from './food-pool';
+import { buildCombos, buildPool, median, type PoolEntry } from './food-pool';
 
 const TODAY = '2026-08-28';
 const settings = DEFAULT_ALGORITHM_SETTINGS;
@@ -110,5 +110,63 @@ describe('пул продуктов', () => {
     );
     expect(pool[0].per.energyKcal).toBeCloseTo(3.5, 5);
     expect(pool[0].per.proteinG).toBeCloseTo(0.15, 5);
+  });
+});
+
+describe('каталог комплектов', () => {
+  /** Три записи в разные дни — чтобы блюдо прошло в пул. */
+  const thrice = (over: Partial<PoolEntry> = {}): PoolEntry[] =>
+    ['2026-08-01', '2026-08-02', '2026-08-03'].map((date) => entry({ date, ...over }));
+
+  const catalogue = (entries: PoolEntry[]) =>
+    buildCombos(entries, buildPool(entries, settings, TODAY));
+
+  it('комплект — это приём пищи одного дня целиком', () => {
+    const combos = catalogue([
+      ...thrice({ key: 'product:oat', name: 'Овсянка' }),
+      ...thrice({ key: 'product:curd', name: 'Творог', amount: 100 }),
+    ]);
+
+    expect(combos).toHaveLength(1);
+    expect(combos[0].meal).toBe('breakfast');
+    expect(combos[0].entries).toBe(3);
+    expect(combos[0].items.map((item) => item.key)).toEqual(['product:curd', 'product:oat']);
+  });
+
+  it('блюдо мимо пула забирает с собой весь комплект', () => {
+    // икру она ела однажды: в пул икра не прошла, а с ней ушёл и завтрак того дня
+    const combos = catalogue([
+      ...thrice({ key: 'product:oat' }),
+      entry({ key: 'product:caviar', name: 'Икра', date: '2026-08-01' }),
+    ]);
+
+    expect(combos).toHaveLength(1);
+    expect(combos[0].from).toBe('2026-08-03');
+    expect(combos[0].entries).toBe(2);
+  });
+
+  it('одинаковые составы схлопываются, граммовка берётся медианой', () => {
+    const combos = catalogue([
+      entry({ date: '2026-08-01', amount: 40 }),
+      entry({ date: '2026-08-02', amount: 50 }),
+      entry({ date: '2026-08-03', amount: 60 }),
+    ]);
+
+    expect(combos).toHaveLength(1);
+    expect(combos[0].items[0].amount).toBe(50);
+  });
+
+  it('крошка комплектом не считается', () => {
+    // пять граммов овсянки — не приём пищи, а обрывок записи
+    expect(catalogue(thrice({ amount: 5 }))).toHaveLength(0);
+  });
+
+  it('один состав в двух приёмах — два разных комплекта', () => {
+    const combos = catalogue([
+      ...thrice({ meal: 'breakfast' }),
+      ...['2026-08-04', '2026-08-05', '2026-08-06'].map((date) => entry({ date, meal: 'lunch' })),
+    ]);
+
+    expect(combos.map((combo) => combo.meal).sort()).toEqual(['breakfast', 'lunch']);
   });
 });

@@ -139,8 +139,14 @@ describe('цели дня', () => {
   const settings = resolveTargetSettings();
   const targets = { energyKcal: 1471, proteinG: 108, carbsG: 138, fatG: 54, fiberG: 21 };
 
-  it('прибавляет энергию тренировки к тренировочному дню', () => {
-    const day = dayTargets(targets, settings, 300);
+  it('по умолчанию все дни плана одинаковы по калорийности', () => {
+    // ровные дни — просьба заказчика (D-074): тренировка цель не двигает
+    expect(dayTargets(targets, settings, 300)).toEqual(targets);
+  });
+
+  it('прибавляет энергию тренировки, когда прибавку включили', () => {
+    const on = resolveTargetSettings({ addWorkoutEnergy: true });
+    const day = dayTargets(targets, on, 300);
     expect(day.energyKcal).toBe(1771);
     // прибавка уходит в углеводы: белок и жиры привязаны к массе тела
     expect(day.proteinG).toBe(108);
@@ -150,11 +156,7 @@ describe('цели дня', () => {
   });
 
   it('в день без тренировки ничего не меняет', () => {
-    expect(dayTargets(targets, settings, 0)).toEqual(targets);
-  });
-
-  it('уважает выключенную прибавку', () => {
-    const off = resolveTargetSettings({ addWorkoutEnergy: false });
-    expect(dayTargets(targets, off, 300)).toEqual(targets);
+    const on = resolveTargetSettings({ addWorkoutEnergy: true });
+    expect(dayTargets(targets, on, 0)).toEqual(targets);
   });
 });
