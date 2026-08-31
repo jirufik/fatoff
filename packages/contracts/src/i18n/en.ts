@@ -306,7 +306,7 @@ export const EN: Record<string, string> = {
   "journal.sort.score": "score",
   "journal.sort.protein": "protein",
   "journal.sort.workout": "workout kcal",
-  "journal.sort.note": "Tap the selected sort again to go back to date order.",
+  "journal.sort.note": "Tap a sort to cycle it: descending, then ascending, then off — back to date order.",
   "journal.sort.energy": "eaten",
   "journal.eaten": "eaten",
   "journal.burned": "burned",

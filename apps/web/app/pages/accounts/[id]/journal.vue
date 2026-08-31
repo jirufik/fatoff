@@ -40,17 +40,17 @@ const SCOPES = ['all', 'food', 'both'] as const
 type Scope = (typeof SCOPES)[number]
 const scope = ref<Scope>('all')
 /*
- * Четыре сортировки, и все «лучшее сверху»: оценка, белок, калории, калории
- * тренировок. Их назвал заказчик, прежние — по дате, балансу и шагам — убраны
- * (D-071).
+ * Четыре сортировки: оценка, белок, калории, калории тренировок. Их назвал
+ * заказчик, прежние — по дате, балансу и шагам — убраны (D-071).
  *
- * `null` — порядок по дате, от свежего к старому. Кнопки у него нет: к нему
- * возвращаются повторным нажатием на выбранную сортировку, и об этом сказано
- * подписью под кнопками, иначе догадаться нельзя.
+ * У каждой три состояния, и переключаются они одной кнопкой по кругу:
+ * убывание → возрастание → выключено. Третье состояние — не украшение, а
+ * единственная дорога обратно к порядку по дате: отдельной кнопки у него нет.
  */
 const SORTS = ['score', 'protein', 'energy', 'workout'] as const
 type Sort = (typeof SORTS)[number]
 const sort = ref<Sort | null>(null)
+const dir = ref<'asc' | 'desc'>('desc')
 
 const loading = ref(false)
 const error = ref('')
@@ -71,7 +71,10 @@ async function load(): Promise<void> {
     }
     // сортировка не выбрана — не шлём её вовсе: пустое значение на сервере
     // означает порядок по дате, и отдельного имени у него нет
-    if (sort.value) query.sort = sort.value
+    if (sort.value) {
+      query.sort = sort.value
+      query.dir = dir.value
+    }
     if (from.value) query.from = from.value
     if (to.value) query.to = to.value
     if (scope.value === 'food') query.withFood = 'true'
@@ -116,12 +119,23 @@ function toggleMeal(date: string, meal: string): void {
   openMeal.value = openMeal.value === key ? null : key
 }
 
+/** Круг из трёх состояний: убывание → возрастание → выключено. */
 function sortBy(column: Sort): void {
-  // повторное нажатие снимает сортировку: это единственный путь обратно к дате
-  sort.value = sort.value === column ? null : column
+  if (sort.value !== column) {
+    sort.value = column
+    dir.value = 'desc'
+  } else if (dir.value === 'desc') {
+    dir.value = 'asc'
+  } else {
+    sort.value = null
+    dir.value = 'desc'
+  }
   page.value = 1
   void load()
 }
+
+const arrow = (column: Sort): string =>
+  sort.value === column ? (dir.value === 'desc' ? ' ↓' : ' ↑') : ''
 
 watch([from, to, scope], () => {
   page.value = 1
@@ -222,7 +236,7 @@ const BALANCE_TONE: Record<string, string> = {
           :aria-pressed="sort === item"
           @click="sortBy(item)"
         >
-          {{ t(`journal.sort.${item}`) }}<span v-if="sort === item"> ↓</span>
+          {{ t(`journal.sort.${item}`) }}{{ arrow(item) }}
         </button>
       </div>
 

@@ -87,26 +87,46 @@ if (sortNames.length !== 4) {
 const firstDate = () => page.locator('.day__date strong').first().innerText();
 const dateBefore = await firstDate();
 
-await page.locator('.sorts button').nth(1).click();
-await page.waitForTimeout(1200);
 // белок берётся из своей разметки, а не разбором текста: в строке он выводится
 // как «Б165», без пробела, и любой разбор по тексту тут же ломается
-const proteins = (await page.locator('.day .macro--protein .value').allInnerTexts())
-  .map((value) => Number(value.trim().replace(',', '.')))
-  .filter(Number.isFinite);
-if (proteins.length < 3) {
-  problems.push(`белок не вычитался из строк дня: нашлось ${proteins.length} значений`);
-} else if (!proteins.every((value, at) => at === 0 || proteins[at - 1] >= value)) {
-  problems.push(`сортировка по белку не по убыванию: ${proteins.slice(0, 6).join(', ')}`);
+const proteins = async () =>
+  (await page.locator('.day .macro--protein .value').allInnerTexts())
+    .map((value) => Number(value.trim().replace(',', '.')))
+    .filter(Number.isFinite);
+
+const protein = page.locator('.sorts button').nth(1);
+
+// первое нажатие — по убыванию
+await protein.click();
+await page.waitForTimeout(1200);
+const down = await proteins();
+if (down.length < 3) {
+  problems.push(`белок не вычитался из строк дня: нашлось ${down.length} значений`);
+} else if (!down.every((value, at) => at === 0 || down[at - 1] >= value)) {
+  problems.push(`первое нажатие не дало убывание: ${down.slice(0, 6).join(', ')}`);
 }
+if (!(await protein.innerText()).includes('↓')) problems.push('нет стрелки убывания на выбранной сортировке');
 if ((await page.locator('.sorts .btn--primary').count()) !== 1) {
   problems.push('выбранная сортировка не подсвечена');
 }
 
-await page.locator('.sorts button').nth(1).click();
+// второе — по возрастанию
+await protein.click();
+await page.waitForTimeout(1200);
+const up = await proteins();
+if (up.length >= 3 && !up.every((value, at) => at === 0 || up[at - 1] <= value)) {
+  problems.push(`второе нажатие не дало возрастание: ${up.slice(0, 6).join(', ')}`);
+}
+if (!(await protein.innerText()).includes('↑')) problems.push('нет стрелки возрастания');
+if (down.length > 0 && up.length > 0 && down[0] === up[0]) {
+  problems.push('направление не поменялось: первая строка та же');
+}
+
+// третье — выключено, и это единственная дорога обратно к порядку по дате
+await protein.click();
 await page.waitForTimeout(1200);
 if ((await firstDate()) !== dateBefore) {
-  problems.push('повторное нажатие не вернуло порядок по дате');
+  problems.push('третье нажатие не вернуло порядок по дате');
 }
 if ((await page.locator('.sorts .btn--primary').count()) !== 0) {
   problems.push('сортировка снята, а подсветка осталась');

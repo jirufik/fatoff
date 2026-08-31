@@ -257,6 +257,23 @@ describe('день целиком', () => {
     expect(second.items[0]?.date).toBe(all.items[5]?.date);
   });
 
+  /*
+   * Сортировка по оценке идёт по всем дням периода, а не по видимой странице:
+   * первая страница обязана содержать лучший день из всех, последняя — худший
+   * (D-071). Иначе «лучшее сверху» означало бы «лучшее из двадцати пяти».
+   */
+  it('по оценке сортирует все дни, а не одну страницу', async () => {
+    const everything = await journal.days(account.id, { pageSize: 200 });
+    const scores = everything.items.map((day) => day.score).filter((v) => v !== null) as number[];
+    expect(scores.length).toBeGreaterThan(5);
+
+    const best = await journal.days(account.id, { sort: 'score', pageSize: 3 });
+    expect(best.items[0]!.score).toBe(Math.max(...scores));
+
+    const worst = await journal.days(account.id, { sort: 'score', dir: 'asc', pageSize: 3 });
+    expect(worst.items[0]!.score).toBe(Math.min(...scores));
+  });
+
   it('дни без оценки уходят вниз при любом направлении', async () => {
     for (const dir of ['desc', 'asc'] as const) {
       const page = await journal.days(account.id, { sort: 'score', dir, pageSize: 200 });
