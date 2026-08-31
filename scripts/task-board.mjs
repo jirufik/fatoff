@@ -27,43 +27,22 @@
  *   node scripts/task-board.mjs task T-03 <файл> — переписать документ задачи
  */
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 
 import { ensureFolder, listFolder, readDoc, rename, writeDoc } from './drive-api.mjs';
+import { envValue } from './env.mjs';
+import { SEP, folderName, parseFolder } from './board.mjs';
 
 /** Статусы. Порядок — это и есть жизненный путь задачи. */
 export const STATUSES = ['ожидает', 'в работе', 'на проверке', 'готово', 'отложена', 'вопрос'];
 
-/**
- * Имя папки задачи: `T-03 · Сортировка в «День целиком» · в работе`.
- *
- * Разделитель — «·» с пробелами: он не встречается в названиях задач, поэтому
- * разбор однозначен, а человеку читается как обычный текст.
- */
-const SEP = ' · ';
-
-export const parseFolder = (name) => {
-  const parts = name.split(SEP);
-  if (parts.length < 3) return null;
-  const status = parts[parts.length - 1];
-  return { id: parts[0], title: parts.slice(1, -1).join(SEP), status };
-};
-
-export const folderName = ({ id, title, status }) => [id, title, status].join(SEP);
 
 /** Настройки берутся из `.env`: идентификаторы личные и в git не едут. */
 function env() {
-  const path = resolve(new URL('..', import.meta.url).pathname, '.env');
-  const text = readFileSync(path, 'utf8');
-  const value = (key) => {
-    const line = text.split('\n').find((row) => row.startsWith(`${key}=`));
-    return line ? line.slice(key.length + 1).split('#')[0].trim() : '';
-  };
   return {
-    tasks: value('DRIVE_TASKS_FOLDER'),
-    notes: value('DRIVE_NOTES_DOC'),
-    board: value('DRIVE_TASKS_DOC'),
-    root: value('DRIVE_FATOFF_FOLDER'),
+    tasks: envValue('DRIVE_TASKS_FOLDER'),
+    notes: envValue('DRIVE_NOTES_DOC'),
+    board: envValue('DRIVE_TASKS_DOC'),
+    root: envValue('DRIVE_FATOFF_FOLDER'),
   };
 }
 
@@ -151,8 +130,17 @@ async function main() {
       process.stdout.write(await readDoc(doc.id));
       return;
     }
-    const result = await writeDoc(doc.id, readFileSync(file, 'utf8'));
-    console.log('записано:', result.name, result.modifiedTime);
+    // .html Google разберёт и сделает настоящий документ с заголовками и
+    // таблицами; всё остальное уедет простым текстом
+    const mime = file.endsWith('.html') ? 'text/html' : 'text/plain';
+    const result = await writeDoc(doc.id, readFileSync(file, 'utf8'), mime);
+
+    // имя документа держим равным имени папки без статуса: статус живёт в папке
+    // и меняется, а имя документа — нет
+    const want = folder.name.split(SEP).slice(0, -1).join(SEP);
+    if (result.name !== want) await rename(doc.id, want);
+
+    console.log('записано:', want, result.modifiedTime);
     return;
   }
 
