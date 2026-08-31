@@ -94,7 +94,18 @@ async function load(): Promise<void> {
   }
 }
 
-async function toggleDay(date: string): Promise<void> {
+/**
+ * Раскрытие дня.
+ *
+ * Раскрыт может быть только один день, поэтому клик убирает со страницы
+ * подробности предыдущего — и если тот лежал выше, всё уезжает вверх. Строку,
+ * по которой нажали, держим на месте сами (D-075).
+ */
+async function toggleDay(event: Event, date: string): Promise<void> {
+  await keepInPlace(rowOf(event, '.day'), () => openDayAt(date))
+}
+
+async function openDayAt(date: string): Promise<void> {
   openMeal.value = null
   if (openDay.value === date) {
     openDay.value = null
@@ -114,9 +125,12 @@ async function toggleDay(date: string): Promise<void> {
   }
 }
 
-function toggleMeal(date: string, meal: string): void {
+function toggleMeal(event: Event, date: string, meal: string): void {
   const key = `${date}:${meal}`
-  openMeal.value = openMeal.value === key ? null : key
+  // приём пищи раскрыт тоже один: соседний сверху схлопывается ровно так же
+  void keepInPlace(rowOf(event, '.meal'), () => {
+    openMeal.value = openMeal.value === key ? null : key
+  })
 }
 
 /** Круг из трёх состояний: убывание → возрастание → выключено. */
@@ -254,7 +268,7 @@ const BALANCE_TONE: Record<string, string> = {
 
     <div v-for="day in days" v-else :key="day.date" class="card day">
       <!-- ── строка дня ──────────────────────────────────────────────────── -->
-      <button class="day__head" type="button" @click="toggleDay(day.date)">
+      <button class="day__head" type="button" @click="toggleDay($event, day.date)">
         <span class="day__arrow">{{ openDay === day.date ? '▾' : '▸' }}</span>
         <DayScore :score="day.score" />
 
@@ -316,7 +330,7 @@ const BALANCE_TONE: Record<string, string> = {
               </p>
 
               <div v-for="meal in details[day.date].meals" :key="meal.meal" class="meal">
-                <button class="meal__head" type="button" @click="toggleMeal(day.date, meal.meal)">
+                <button class="meal__head" type="button" @click="toggleMeal($event, day.date, meal.meal)">
                   <span class="day__arrow">
                     {{ openMeal === `${day.date}:${meal.meal}` ? '▾' : '▸' }}
                   </span>

@@ -92,6 +92,20 @@ const showAdvanced = ref(false)
 const showTemplateForm = ref(false)
 const openGroups = ref<Record<string, boolean>>({})
 const openDay = ref<string | null>(null)
+
+/**
+ * Раскрытие дня плана.
+ *
+ * После сборки раскрыт первый день, а раскрыт может быть только один. Клик по
+ * четвёртому дню убирает со страницы подробности первого — полторы тысячи
+ * пикселей выше пальца, — и страница уезжает. Держим строку на месте сами
+ * (D-075).
+ */
+function toggleDay(event: Event, date: string): void {
+  void keepInPlace(rowOf(event, '.plan-day'), () => {
+    openDay.value = openDay.value === date ? null : date
+  })
+}
 const planName = ref('')
 const planTags = ref<string[]>([])
 /** Заведённые метки аккаунта: при сохранении их предлагают, а не набирают. */
@@ -1040,7 +1054,7 @@ function nextMonday(): string {
         <button
           class="day__head"
           type="button"
-          @click="openDay = openDay === day.date ? null : day.date"
+          @click="toggleDay($event, day.date)"
         >
           <span class="day__arrow">{{ openDay === day.date ? '▾' : '▸' }}</span>
           <span class="day__date">
