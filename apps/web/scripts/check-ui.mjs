@@ -49,6 +49,30 @@ const shot = async (name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.
  * сам, Safari на телефоне — нет, и человек видел именно то, что видит Safari.
  * Выключив подсказку браузера, проверяем свой код, а не чужой.
  */
+/*
+ * Числа в строке дня объяснены на месте, а не в подсказке по наведению (D-079).
+ *
+ * «Цель» и «в меню» — два слова, за которыми стоят расчёт расхода и подбор меню;
+ * без пояснения это просто цифры. Пояснение обязано быть видимым текстом:
+ * на телефоне наводить нечем, и подсказка через title туда не доедет.
+ */
+const numbersExplained = async (where) => {
+  const lines = await page.locator('.numbers li').allInnerTexts();
+  if (lines.length !== 3) {
+    problems.push(`${where}: пояснений к числам ${lines.length}, ожидалось 3`);
+    return;
+  }
+  // в первой строке стоит настоящая арифметика: расход, дефицит и цель
+  const digits = (lines[0].match(/\d[\d\s ]*/g) ?? []).length;
+  console.log(`${where}: чисел в пояснении к «цели» — ${digits}`);
+  if (digits < 3) problems.push(`${where}: пояснение к «цели» без чисел: ${lines[0].slice(0, 80)}`);
+  for (const word of ['цель', 'в меню', 'баланс']) {
+    if (!lines.join(' ').toLowerCase().includes(word)) {
+      problems.push(`${where}: пояснение не называет «${word}»`);
+    }
+  }
+};
+
 const staysInPlace = async (where, row, head, target, preOpen = null) => {
   await page.addStyleTag({ content: '*{overflow-anchor:none}' });
 
@@ -373,6 +397,8 @@ if (distinctTargets.length !== 1) {
 
 // первый день раскрыт сразу после сборки, поэтому клик по четвёртому схлопывает
 // его — ровно тот случай, на который жаловались
+await numbersExplained('режим');
+
 await staysInPlace('режим', '.plan-day', '.day__head', 3);
 
 // дальше прогон правит первый день, поэтому возвращаем раскрытым его
@@ -510,6 +536,7 @@ const viewItems = await page.locator('.items li').count();
 console.log(`просмотр плана: дней ${viewDays}, позиций ${viewItems}`);
 if (viewDays !== 7) problems.push(`в просмотре плана дней ${viewDays}, ожидалось 7`);
 if (viewItems === 0) problems.push('в просмотре плана не видно состава приёмов пищи');
+await numbersExplained('просмотр плана');
 await shot('plan-view');
 
 // метку можно переименовать — во всех планах разом

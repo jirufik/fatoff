@@ -162,6 +162,29 @@ const pdfHref = computed(
         </ul>
       </section>
 
+      <!--
+        Что означают числа в строке дня (D-079).
+
+        Здесь они объясняются числами самого плана: нормы хранятся вместе с ним,
+        поэтому объяснение остаётся верным и через месяц, когда расчёт изменится.
+      -->
+      <section class="card">
+        <h2><AppIcon name="info" :size="16" /> {{ t('planner.numbers') }}</h2>
+        <ul class="numbers">
+          <li>
+            {{
+              t('planner.numbers.target', {
+                burn: num(plan.plan.targets.expenditure.totalKcal),
+                deficit: num(plan.plan.targets.deficitKcal),
+                target: num(plan.plan.targets.computed.energyKcal),
+              })
+            }}
+          </li>
+          <li>{{ t('planner.numbers.inMenu') }}</li>
+          <li>{{ t('planner.numbers.balance') }}</li>
+        </ul>
+      </section>
+
       <!-- ── дни ──────────────────────────────────────────────────────────── -->
       <section v-for="day in plan.plan.days" :key="day.date" class="card day">
         <header class="day__head">
@@ -175,7 +198,7 @@ const pdfHref = computed(
             <span class="tiny muted">{{ t('planner.day.inMenu') }}</span>
             <span class="mono">{{ num(day.totals.energyKcal) }}</span>
             <span v-if="day.balance" class="chip" :class="BALANCE_TONE[day.balance]">
-              {{ signedKcal(day.balanceKcal) }}
+              {{ t(`balance.${day.balance}`) }} {{ signedKcal(day.balanceKcal) }}
             </span>
           </div>
         </header>
@@ -277,6 +300,18 @@ h2 {
   border-top: 1px solid var(--line-soft);
   padding-top: 0.5rem;
 }
+.numbers {
+  margin: 0.2rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.numbers li + li {
+  margin-top: 0.25rem;
+}
+
 .meal__from {
   margin: 0.1rem 0 0.3rem;
 }
