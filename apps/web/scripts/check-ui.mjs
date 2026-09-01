@@ -123,6 +123,49 @@ await page.waitForTimeout(1200);
 await page.waitForSelector('.day', { timeout: 10_000 });
 console.log('дней на странице:', await page.locator('.day').count());
 
+/*
+ * Календарь закрывается по выбору даты и не открывается обратно (D-080).
+ *
+ * На iOS Safari фокус возвращается в поле, как только исчезает элемент, по
+ * которому нажали, — а исчезает как раз календарь. Раньше на фокусе висело
+ * «открыть», и он открывался снова в тот же миг: со стороны выглядело так,
+ * будто нажатие на дату не работает.
+ *
+ * WebKit отсюда не запускается (ему нужна чужая версия ICU), поэтому поведение
+ * воспроизводится тем самым событием, из-за которого всё и ломалось: фокус в
+ * поле вызывается руками сразу после выбора даты.
+ */
+const field = page.locator('.date__input').first();
+// выбор даты сузит период и уберёт дни со страницы — вернём поле как было
+const fieldWas = await field.inputValue();
+await field.click();
+await page.waitForTimeout(400);
+if ((await page.locator('.cal').count()) === 0) {
+  problems.push('календарь не открылся нажатием по полю даты');
+} else {
+  await page.locator('.cal__day').nth(10).click();
+  await page.waitForTimeout(500);
+  if ((await page.locator('.cal').count()) !== 0) {
+    problems.push('календарь не закрылся после выбора даты');
+  }
+
+  await field.evaluate((el) => el.focus());
+  await page.waitForTimeout(400);
+  const reopened = await page.locator('.cal').count();
+  console.log('календарь после возвращённого фокуса:', reopened === 0 ? 'закрыт' : 'открылся снова');
+  if (reopened !== 0) {
+    problems.push('календарь открылся сам от возвращённого фокуса — на айфоне это выглядит как «не закрывается»');
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+}
+
+// заодно проверяем набор руками: возвращаем прежнее значение и ждём список дней
+await field.fill(fieldWas);
+await field.press('Enter');
+await page.waitForTimeout(1500);
+await page.waitForSelector('.day', { timeout: 15_000 });
+
 // раскрываем второй день, затем девятый: первый схлопнется выше пальца
 await staysInPlace('журнал', '.day', '.day__head', 8, 1);
 await page.locator('.day').nth(8).locator('.day__head').first().click();

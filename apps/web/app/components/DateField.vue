@@ -24,12 +24,32 @@ const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 
 const open = ref(false)
 const typed = ref('')
+/** Поле правится руками: тогда показываем набранное, а не сохранённое. */
+const editing = ref(false)
 const root = ref<HTMLElement | null>(null)
+const field = ref<HTMLInputElement | null>(null)
+
+/**
+ * Когда календарь в последний раз закрыли выбором даты.
+ *
+ * На iOS Safari фокус возвращается в поле, как только исчезает элемент, по
+ * которому нажали, — а исчезает как раз календарь. Если на фокусе висит
+ * «открыть», он закрывается и в тот же миг открывается снова: со стороны это
+ * выглядит так, будто нажатие на дату не работает вовсе (D-080).
+ *
+ * Открытие теперь висит на нажатии, а не на фокусе, и вдобавок заслонка: полсекунды
+ * после выбора даты открыть календарь нельзя ничем. Хватило бы и одного из двух,
+ * но проверить на самом айфоне отсюда нечем, поэтому закрыты оба пути.
+ */
+let pickedAt = 0
+const REOPEN_GUARD_MS = 500
 
 /** Месяц, показанный в календаре: от выбранной даты, иначе от сегодняшней. */
 const view = ref(startOfMonth(props.modelValue || todayIso()))
 
-const shown = computed(() => (open.value ? typed.value : toHuman(props.modelValue)))
+const shown = computed(() =>
+  open.value || editing.value ? typed.value : toHuman(props.modelValue),
+)
 
 const grid = computed(() => {
   const first = new Date(`${view.value}T00:00:00Z`)
@@ -57,17 +77,31 @@ const title = computed(() => {
   return `${MONTHS[at.getUTCMonth()]} ${at.getUTCFullYear()}`
 })
 
+/** Открыть календарь — если это не отголосок только что сделанного выбора. */
+function show(): void {
+  if (Date.now() - pickedAt < REOPEN_GUARD_MS) return
+  typed.value = toHuman(props.modelValue)
+  view.value = startOfMonth(props.modelValue || todayIso())
+  open.value = true
+}
+
 function toggle(): void {
-  open.value = !open.value
   if (open.value) {
-    typed.value = toHuman(props.modelValue)
-    view.value = startOfMonth(props.modelValue || todayIso())
+    open.value = false
+    return
   }
+  show()
 }
 
 function pick(iso: string): void {
+  pickedAt = Date.now()
   emit('update:modelValue', iso)
+  // набранное подтягиваем к выбранному: на iOS поле может остаться в фокусе,
+  // и тогда оно показывало бы прежний текст вместо только что выбранной даты
+  typed.value = toHuman(iso)
   open.value = false
+  // и убираем клавиатуру: пока поле в фокусе, Safari норовит вернуть его себе
+  field.value?.blur()
 }
 
 function shiftMonth(months: number): void {
@@ -97,7 +131,7 @@ function commitTyped(): void {
   view.value = startOfMonth(iso)
 }
 
-function onOutside(event: MouseEvent): void {
+function onOutside(event: Event): void {
   if (open.value && root.value && !root.value.contains(event.target as Node)) open.value = false
 }
 function onKey(event: KeyboardEvent): void {
@@ -106,10 +140,13 @@ function onKey(event: KeyboardEvent): void {
 
 onMounted(() => {
   document.addEventListener('mousedown', onOutside)
+  // на телефоне нажатия мышью не бывает вовсе: без касания календарь не закрыть
+  document.addEventListener('touchstart', onOutside, { passive: true })
   document.addEventListener('keydown', onKey)
 })
 onBeforeUnmount(() => {
   document.removeEventListener('mousedown', onOutside)
+  document.removeEventListener('touchstart', onOutside)
   document.removeEventListener('keydown', onKey)
 })
 
@@ -130,16 +167,19 @@ function todayIso(): string {
   <div ref="root" class="date">
     <div class="date__field">
       <input
+        ref="field"
         class="date__input"
         :value="shown"
         :placeholder="placeholder"
         inputmode="numeric"
-        @focus="open = true; typed = toHuman(modelValue)"
+        @focus="editing = true; typed = toHuman(modelValue)"
+        @blur="editing = false"
+        @click="show"
         @input="typed = ($event.target as HTMLInputElement).value"
         @change="commitTyped"
         @keydown.enter.prevent="commitTyped(); open = false"
       />
-      <button class="date__toggle" type="button" tabindex="-1" aria-label="Календарь" @click="toggle">
+      <button class="date__toggle" type="button" aria-label="Календарь" @click="toggle">
         <AppIcon name="calendar" :size="15" />
       </button>
     </div>
