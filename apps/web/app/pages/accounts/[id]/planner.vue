@@ -1046,6 +1046,28 @@ function nextMonday(): string {
         </div>
       </div>
 
+      <!--
+        Что означают числа в строке дня (D-079).
+
+        Раньше над списком стояли «цель» и «в меню» — два слова без единого
+        пояснения, откуда взялись цифры. Объяснение живёт здесь, а не в подсказке
+        по наведению: на телефоне наводить нечем.
+      -->
+      <h3 v-if="targets" class="pane__title">{{ t('planner.numbers') }}</h3>
+      <ul v-if="targets" class="numbers">
+        <li>
+          {{
+            t('planner.numbers.target', {
+              burn: num(targets.expenditure.totalKcal),
+              deficit: num(targets.deficitKcal),
+              target: num(targets.computed.energyKcal),
+            })
+          }}
+        </li>
+        <li>{{ t('planner.numbers.inMenu') }}</li>
+        <li>{{ t('planner.numbers.balance') }}</li>
+      </ul>
+
       <div v-for="(warning, index) in plan.warnings" :key="index" class="alert alert--warn">
         {{ message(warning) }}
       </div>
@@ -1593,6 +1615,18 @@ h2 {
   grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
   gap: 0.6rem;
 }
+.numbers {
+  margin: 0.2rem 0 0.9rem;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.numbers li + li {
+  margin-top: 0.25rem;
+}
+
 .meal-card__from {
   margin: 0.1rem 0 0.2rem;
 }
