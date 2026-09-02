@@ -113,6 +113,49 @@ await page.evaluate(() => localStorage.setItem('fatoff:locale', 'ru'));
 await page.reload();
 await page.waitForTimeout(400);
 
+// ── обзор: сводка за период ─────────────────────────────────────────────────
+/*
+ * Сводка отвечает на вопрос «в дефиците я или нет» (D-082).
+ *
+ * Раньше здесь стояли пять чисел без периода и без подписи, откуда они. Теперь
+ * у каждого числа сказано, по скольким дням оно посчитано, — и это не украшение:
+ * среднее по трём дням из тридцати означает совсем не то, что по тридцати.
+ */
+await page.goto(`${BASE}/accounts/${ACCOUNT}`);
+await page.waitForSelector('section.card', { timeout: 15_000 });
+await page.waitForTimeout(1500);
+
+// ждём именно сводку, но не падаем таймаутом: пусто — это внятная проблема,
+// а не обрыв прогона на середине
+if ((await page.locator('.stats').count()) === 0) {
+  problems.push('на «Обзоре» нет сводки за период');
+}
+
+const periodTiles = await page.locator('.stats .stat__label').allInnerTexts();
+console.log('сводка за период:', periodTiles.map((s) => s.trim()).join(' | '));
+for (const word of ['расход', 'съедено', 'баланс']) {
+  if (!periodTiles.join(' ').toLowerCase().includes(word)) {
+    problems.push(`в сводке нет числа «${word}»`);
+  }
+}
+
+const counted = await page.locator('.stats .tiny.muted').allInnerTexts();
+if (!counted.some((line) => /по \d+ дням из \d+/.test(line))) {
+  problems.push(`не сказано, по скольким дням посчитано среднее: ${counted.join(' | ')}`);
+}
+
+const verdict = await page.locator('.period__verdict').innerText().catch(() => '');
+console.log('вердикт по балансу:', verdict.replace(/\s+/g, ' ').slice(0, 80));
+if (verdict.trim() === '') problems.push('сводка не говорит, дефицит это или нет');
+
+const bars = await page.locator('.period__chart .period__row').count();
+if (bars !== 2) problems.push(`полосок «съедено против расхода» ${bars}, ожидалось 2`);
+
+const progressRows = await page.locator('table.data tbody tr').count();
+console.log('строк в прогрессе:', progressRows);
+if (progressRows !== 6) problems.push(`строк в таблице прогресса ${progressRows}, ожидалось 6`);
+await shot('overview-summary');
+
 // ── день целиком ────────────────────────────────────────────────────────────
 await page.goto(`${BASE}/accounts/${ACCOUNT}/journal`);
 await page.waitForSelector('.scope .pill', { timeout: 10_000 });
