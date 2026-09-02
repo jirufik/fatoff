@@ -13,6 +13,7 @@ import {
 } from '../../src/database/entities';
 import { FULL_DAY_MEALS } from '@fatoff/contracts';
 
+import { AnalyticsService } from '../../src/modules/analytics/analytics.service';
 import { JournalService } from '../../src/modules/journal/journal.service';
 import { AccountFactsService } from '../../src/modules/planner/facts.service';
 import { SyncService } from '../../src/modules/sync/sync.service';
@@ -243,6 +244,56 @@ describe('день целиком', () => {
     expect(dates).toContain('2026-08-09');
 
     expect(both.items.every((day) => day.meals >= FULL_DAY_MEALS)).toBe(true);
+  });
+
+  /*
+   * Сводка за период считается отдельным запросом, но теми же CTE, что и журнал.
+   *
+   * Смысл этого теста — не проверить арифметику, а поймать расхождение: если
+   * когда-нибудь одна из двух сторон начнёт считать по-своему, на главном экране
+   * появится одно число, а на «Дне целиком» другое, и никто не заметит (D-082).
+   */
+  it('сводка за период сходится с тем, что журнал показывает по дням', async () => {
+    const analytics = new AnalyticsService(em);
+    const from = '2026-08-01';
+    const to = '2026-08-10';
+
+    const [summary, page] = await Promise.all([
+      analytics.summary(account.id, from, to),
+      journal.days(account.id, { pageSize: 100, from, to }),
+    ]);
+
+    const withFood = page.items.filter((day) => day.energyInKcal !== null);
+    const withBurn = page.items.filter((day) => day.energyOutKcal !== null);
+    const withBoth = page.items.filter(
+      (day) => day.energyInKcal !== null && day.energyOutKcal !== null,
+    );
+
+    expect(summary.eaten.days).toBe(withFood.length);
+    expect(summary.burned.days).toBe(withBurn.length);
+    expect(summary.balance.days).toBe(withBoth.length);
+
+    const sum = (values: number[]): number =>
+      Math.round(values.reduce((total, value) => total + value, 0) * 10) / 10;
+
+    expect(summary.eaten.total).toBeCloseTo(sum(withFood.map((day) => day.energyInKcal!)), 0);
+    expect(summary.burned.total).toBeCloseTo(sum(withBurn.map((day) => day.energyOutKcal!)), 0);
+    expect(summary.balance.total).toBeCloseTo(sum(withBoth.map((day) => day.balanceKcal!)), 0);
+  });
+
+  it('среднее за период считается по дням с данными, а не по всем подряд', async () => {
+    const analytics = new AnalyticsService(em);
+    // месяц, в котором данных всего десять дней: если делить на 31, среднее втрое ниже
+    const summary = await analytics.summary(account.id, '2026-08-01', '2026-08-31');
+
+    expect(summary.days).toBe(31);
+    expect(summary.eaten.days).toBeGreaterThan(0);
+    expect(summary.eaten.days).toBeLessThan(summary.days);
+
+    const avgOverDaysWithData = summary.eaten.total! / summary.eaten.days;
+    expect(summary.eaten.avg).toBeCloseTo(avgOverDaysWithData, 0);
+    // а по всем дням периода получилось бы заметно меньше — так считать нельзя
+    expect(summary.eaten.avg!).toBeGreaterThan(summary.eaten.total! / summary.days);
   });
 
   it('сортирует по белку и держит страницу', async () => {

@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import type { AccountDto, AccountOverviewDto, SyncRunDto } from '@fatoff/contracts'
+import { BALANCE_EVEN_KCAL } from '@fatoff/contracts'
+import type {
+  AccountDto,
+  AccountOverviewDto,
+  PeriodSummaryDto,
+  SyncRunDto,
+} from '@fatoff/contracts'
 
 /**
  * Обзор аккаунта.
@@ -15,6 +21,96 @@ const { t } = useI18n()
 const id = route.params.id as string
 
 const account = ref<AccountDto | null>(null)
+
+/**
+ * Сводка за период: сколько потрачено, сколько съедено, что из этого вышло.
+ *
+ * Считает сервер (D-082): те же числа показываются на «Дне целиком», и две
+ * арифметики рано или поздно разошлись бы — на одном экране одно, на другом
+ * другое.
+ */
+const summary = ref<PeriodSummaryDto | null>(null)
+const from = ref('')
+const to = ref('')
+const loadingSummary = ref(false)
+
+async function loadSummary(): Promise<void> {
+  loadingSummary.value = true
+  try {
+    const query: Record<string, string> = {}
+    if (from.value) query.from = from.value
+    if (to.value) query.to = to.value
+
+    summary.value = await api.get<PeriodSummaryDto>(
+      `/accounts/${id}/summary?${new URLSearchParams(query).toString()}`,
+    )
+    // сервер сам решает, какой период взять, если даты не заданы: показываем его
+    from.value = summary.value.from
+    to.value = summary.value.to
+  } catch (caught) {
+    error.value = errorMessage(caught)
+  } finally {
+    loadingSummary.value = false
+  }
+}
+
+/** Быстрый выбор: последние N дней, считая сегодняшний. */
+function lastDays(days: number): void {
+  const iso = (at: Date): string =>
+    `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`
+
+  const end = new Date()
+  const start = new Date(end)
+  start.setDate(start.getDate() - (days - 1))
+
+  from.value = iso(start)
+  to.value = iso(end)
+  void loadSummary()
+}
+
+/**
+ * Насколько полоска съеденного короче полоски расхода.
+ *
+ * Обе меряются от большего из двух, поэтому длинная всегда во всю ширину, а
+ * короткая показывает разницу. Проценты считаются здесь, а не на сервере: это
+ * вопрос картинки, а не данных.
+ */
+const barWidth = (value: number | null): string => {
+  const eaten = summary.value?.eaten.avg ?? 0
+  const burned = summary.value?.burned.avg ?? 0
+  const top = Math.max(eaten, burned)
+  if (!value || top <= 0) return '0%'
+  return `${Math.round((value / top) * 100)}%`
+}
+
+/** Со знаком: «−348» читается как баланс, «348» — как непонятно что. */
+const signed = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) return '—'
+  const sign = value > 0 ? '+' : value < 0 ? '−' : ''
+  return `${sign}${num(Math.abs(value))}`
+}
+
+/** Занятий в неделю: «0.6 занятия в день» никому ничего не говорит. */
+const perWeek = computed(() => {
+  const days = summary.value?.days ?? 0
+  if (days === 0) return '0'
+  return ((summary.value!.workouts.count / days) * 7).toFixed(1)
+})
+
+const BALANCE_TONE: Record<string, string> = {
+  deficit: 'chip--ok',
+  even: 'chip--info',
+  surplus: 'chip--warn',
+}
+
+/** Дефицит, профицит или «ровно» — по среднему балансу за период. */
+const balanceState = computed(() => {
+  const avg = summary.value?.balance.avg
+  if (avg === null || avg === undefined) return null
+  if (avg < -BALANCE_EVEN_KCAL) return 'deficit'
+  if (avg > BALANCE_EVEN_KCAL) return 'surplus'
+  return 'even'
+})
 
 /**
  * Имя аккаунта задаётся прямо здесь.
@@ -77,6 +173,7 @@ onMounted(async () => {
       api.get<AccountOverviewDto>(`/accounts/${id}/overview`),
       api.get<SyncRunDto[]>(`/accounts/${id}/sync?limit=1`),
     ])
+    await loadSummary()
   } catch (caught) {
     error.value = errorMessage(caught)
   }
@@ -136,32 +233,131 @@ const when = (iso: string | null | undefined): string =>
       </div>
     </div>
 
-    <!-- ── сводка ─────────────────────────────────────────────────────────── -->
+    <!-- ── сводка за период ───────────────────────────────────────────────
+      Раньше здесь стояли пять чисел без периода и без подписи, откуда они.
+      Теперь период выбирается, а у каждого числа сказано, по скольким дням оно
+      посчитано (D-082).
+    -->
     <section class="card">
       <h2><AppIcon name="gauge" :size="16" /> {{ t('overview.summary') }}</h2>
 
-      <div v-if="overview && overview.daysWithData > 0" class="stats">
-        <div>
-          <div class="stat__value">{{ num(overview.avgEnergyKcal) }}</div>
-          <div class="stat__label">{{ t('overview.stat.kcal') }}</div>
-        </div>
-        <div>
-          <div class="stat__value">{{ num(overview.avgEnergyGoalKcal) }}</div>
-          <div class="stat__label">{{ t('overview.stat.goal') }}</div>
-        </div>
-        <div>
-          <div class="stat__value">{{ num(overview.daysWithData) }}</div>
-          <div class="stat__label">{{ t('overview.stat.daysWithFood') }}</div>
-        </div>
-        <div>
-          <div class="stat__value">{{ num(overview.weightLastKg, 1) }}</div>
-          <div class="stat__label">{{ t('overview.stat.weight') }}</div>
-        </div>
-        <div>
-          <div class="stat__value">{{ num(overview.productsCached) }}</div>
-          <div class="stat__label">{{ t('overview.stat.products') }}</div>
+      <div class="row row--wrap" style="gap: 0.5rem; align-items: flex-end">
+        <label class="filter">
+          <span>{{ t('common.from') }}</span>
+          <DateField v-model="from" no-future />
+        </label>
+        <label class="filter">
+          <span>{{ t('common.to') }}</span>
+          <DateField v-model="to" no-future />
+        </label>
+        <div class="row" style="gap: 0.3rem">
+          <button class="btn btn--small" type="button" @click="lastDays(7)">
+            {{ t('common.week') }}
+          </button>
+          <button class="btn btn--small" type="button" @click="lastDays(30)">
+            {{ t('common.month') }}
+          </button>
+          <button class="btn btn--small btn--primary" type="button" :disabled="loadingSummary" @click="loadSummary()">
+            <span v-if="loadingSummary" class="spinner" />
+            {{ t('common.apply') }}
+          </button>
         </div>
       </div>
+
+      <template v-if="summary && (summary.eaten.days > 0 || summary.burned.days > 0)">
+        <div class="stats" style="margin-top: 0.9rem">
+          <div>
+            <div class="stat__value">{{ num(summary.burned.avg) }}</div>
+            <div class="stat__label">
+              <AppIcon name="flame" :size="12" /> {{ t('overview.period.burned') }}
+            </div>
+            <div class="tiny muted">{{ t('overview.period.days', { days: summary.burned.days, total: summary.days }) }}</div>
+          </div>
+          <div>
+            <div class="stat__value">{{ num(summary.eaten.avg) }}</div>
+            <div class="stat__label">
+              <AppIcon name="meal" :size="12" /> {{ t('overview.period.eaten') }}
+            </div>
+            <div class="tiny muted">{{ t('overview.period.days', { days: summary.eaten.days, total: summary.days }) }}</div>
+          </div>
+          <div>
+            <div class="stat__value">{{ signed(summary.balance.avg) }}</div>
+            <div class="stat__label">{{ t('overview.period.balance') }}</div>
+            <div class="tiny muted">{{ t('overview.period.days', { days: summary.balance.days, total: summary.days }) }}</div>
+          </div>
+        </div>
+
+        <p class="period__verdict">
+          <span v-if="balanceState" class="chip" :class="BALANCE_TONE[balanceState]">
+            {{ t(`balance.${balanceState}`) }}
+          </span>
+          <span v-if="balanceState">
+            {{ t(`overview.period.${balanceState}`, { value: num(Math.abs(summary.balance.avg ?? 0)) }) }}
+          </span>
+          <span v-else class="muted">{{ t('overview.period.noBalance') }}</span>
+        </p>
+
+        <!-- две полоски: короткая показывает, насколько съедено меньше расхода -->
+        <div class="period__chart">
+          <div class="period__row">
+            <span class="period__label">{{ t('overview.period.eaten') }}</span>
+            <span class="period__track"><span class="period__fill period__fill--eaten" :style="{ width: barWidth(summary.eaten.avg) }" /></span>
+            <span class="period__value mono">{{ num(summary.eaten.avg) }}</span>
+          </div>
+          <div class="period__row">
+            <span class="period__label">{{ t('overview.period.burned') }}</span>
+            <span class="period__track"><span class="period__fill period__fill--burned" :style="{ width: barWidth(summary.burned.avg) }" /></span>
+            <span class="period__value mono">{{ num(summary.burned.avg) }}</span>
+          </div>
+        </div>
+
+        <h3 class="pane__title">{{ t('overview.progress') }}</h3>
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th />
+                <th>{{ t('overview.progress.avg') }}</th>
+                <th>{{ t('overview.progress.total') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{{ t('overview.period.eaten') }}</td>
+                <td class="mono">{{ num(summary.eaten.avg) }} {{ t('common.kcal') }}</td>
+                <td class="mono">{{ num(summary.eaten.total) }}</td>
+              </tr>
+              <tr>
+                <td>{{ t('overview.period.burned') }}</td>
+                <td class="mono">{{ num(summary.burned.avg) }} {{ t('common.kcal') }}</td>
+                <td class="mono">{{ num(summary.burned.total) }}</td>
+              </tr>
+              <tr>
+                <td>{{ t('overview.period.balance') }}</td>
+                <td class="mono">{{ signed(summary.balance.avg) }} {{ t('common.kcal') }}</td>
+                <td class="mono">{{ signed(summary.balance.total) }}</td>
+              </tr>
+              <tr>
+                <td>{{ t('macro.protein') }}</td>
+                <td class="mono">{{ num(summary.proteinG.avg) }} {{ t('unit.g') }}</td>
+                <td class="mono">{{ num(summary.proteinG.total) }}</td>
+              </tr>
+              <tr>
+                <td>{{ t('overview.progress.workouts') }}</td>
+                <td class="mono">{{ t('overview.progress.perWeek', { value: perWeek }) }}</td>
+                <td class="mono">
+                  {{ summary.workouts.count }} · {{ num(summary.workouts.minutes) }} {{ t('common.min') }}
+                </td>
+              </tr>
+              <tr>
+                <td>{{ t('overview.progress.activity') }}</td>
+                <td class="mono">{{ num(summary.steps.avg) }} {{ t('overview.progress.steps') }}</td>
+                <td class="mono">{{ num(summary.steps.total) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
 
       <p v-else class="muted">
         {{ t('overview.noData') }}
@@ -248,5 +444,54 @@ h2 {
 }
 .name-btn {
   flex: none;
+}
+
+.period__verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.7rem 0 0.2rem;
+  font-size: 0.9rem;
+}
+
+.period__chart {
+  margin: 0.7rem 0 1.1rem;
+}
+
+/* сетка, а не флекс: у длинного слова в первой ячейке иначе едет вторая */
+.period__row {
+  display: grid;
+  grid-template-columns: minmax(min(5.5rem, 30%), auto) 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  font-size: 0.86rem;
+}
+
+.period__track {
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--sunk);
+  overflow: hidden;
+}
+
+.period__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.period__fill--eaten {
+  background: var(--accent);
+}
+
+.period__fill--burned {
+  background: color-mix(in oklab, var(--accent) 45%, var(--ink-3));
+}
+
+.period__value {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }
 </style>
