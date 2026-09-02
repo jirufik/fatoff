@@ -909,11 +909,11 @@ function nextMonday(): string {
       <div class="row row--wrap" style="gap: 0.5rem; align-items: flex-end">
         <label class="filter">
           <span>{{ t('planner.pool.from') }}</span>
-          <DateField v-model="poolFrom" />
+          <DateField v-model="poolFrom" no-future />
         </label>
         <label class="filter">
           <span>{{ t('planner.pool.to') }}</span>
-          <DateField v-model="poolTo" />
+          <DateField v-model="poolTo" no-future />
         </label>
         <button class="btn btn--small" type="button" @click="poolOpen = !poolOpen">
           {{ poolOpen ? '▾' : '▸' }}

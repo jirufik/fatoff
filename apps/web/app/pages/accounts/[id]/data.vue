@@ -194,11 +194,11 @@ const time = (stamp: string | null | undefined): string =>
     <div class="card filters">
       <label v-if="tab !== 'products'" class="filter">
         <span>{{ t('common.from') }}</span>
-        <DateField v-model="from" />
+        <DateField v-model="from" no-future />
       </label>
       <label v-if="tab !== 'products'" class="filter">
         <span>{{ t('common.to') }}</span>
-        <DateField v-model="to" />
+        <DateField v-model="to" no-future />
       </label>
 
       <template v-if="tab === 'diary'">

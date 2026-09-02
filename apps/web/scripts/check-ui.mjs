@@ -143,7 +143,9 @@ await page.waitForTimeout(400);
 if ((await page.locator('.cal').count()) === 0) {
   problems.push('календарь не открылся нажатием по полю даты');
 } else {
-  await page.locator('.cal__day').nth(10).click();
+  // берём последний доступный день — это сегодня: будущие выключены (D-081),
+  // и в начале месяца доступных может оказаться всего два-три
+  await page.locator('.cal__day:not(.cal__day--off)').last().click();
   await page.waitForTimeout(500);
   if ((await page.locator('.cal').count()) !== 0) {
     problems.push('календарь не закрылся после выбора даты');
@@ -156,6 +158,37 @@ if ((await page.locator('.cal').count()) === 0) {
   if (reopened !== 0) {
     problems.push('календарь открылся сам от возвращённого фокуса — на айфоне это выглядит как «не закрывается»');
   }
+  /*
+   * Будущего в дневнике не бывает (D-081).
+   *
+   * «День целиком» показывает прожитые дни. Выбрав завтра, человек получал
+   * пустой список и решал, что данные пропали. Смотрим на месяц вперёд: там
+   * будущее целиком, и ни одного дня выбрать нельзя.
+   */
+  await field.click();
+  await page.waitForTimeout(400);
+  await page.locator('.cal__nav').nth(1).click();
+  await page.locator('.cal__nav').nth(1).click();
+  await page.waitForTimeout(400);
+  const cells = await page.locator('.cal__day').count();
+  const locked = await page.locator('.cal__day--off').count();
+  console.log(`календарь на два месяца вперёд: выключено ${locked} из ${cells}`);
+  if (cells === 0 || locked !== cells) {
+    problems.push(`в дневнике можно выбрать будущий день: выключено ${locked} из ${cells}`);
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+
+  // запрет обязан держаться и при наборе с клавиатуры, иначе он обходится вводом
+  const tomorrow = new Date(Date.now() + 86_400_000);
+  const human = `${String(tomorrow.getDate()).padStart(2, '0')}.${String(tomorrow.getMonth() + 1).padStart(2, '0')}.${tomorrow.getFullYear()}`;
+  await field.fill(human);
+  await field.press('Enter');
+  await page.waitForTimeout(800);
+  if ((await field.inputValue()) === human) {
+    problems.push(`будущую дату ${human} приняли с клавиатуры`);
+  }
+
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
 }
@@ -372,6 +405,22 @@ await checkNav('режиме');
 const basic = await page.locator('.setting').count();
 const modes = await page.locator('.mode').count();
 const starters = await page.locator('.starter').count();
+/*
+ * А в «Режиме» будущее, наоборот, нужно: план и строится вперёд (D-081).
+ *
+ * Один и тот же запрет, поставленный не глядя во все поля даты, сломал бы
+ * генератор — поэтому проверяется и обратное.
+ */
+await page.locator('.date__input').first().click();
+await page.waitForTimeout(400);
+await page.locator('.cal__nav').nth(1).click();
+await page.waitForTimeout(300);
+const plannedLocked = await page.locator('.cal__day--off').count();
+console.log('период плана, выключенных дней вперёд:', plannedLocked);
+if (plannedLocked > 0) problems.push('в «Режиме» будущее заблокировано, а план строится вперёд');
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
+
 console.log('основных настроек:', basic, '| режимов:', modes, '| шаблонов:', starters - 1);
 if (basic !== 5) problems.push(`основных настроек ${basic}, ожидалось 5`);
 if (modes !== 4) problems.push(`режимов тренировок ${modes}, ожидалось 4`);
@@ -881,7 +930,7 @@ if (weekdays[0] !== 'пн') problems.push(`календарь начинаетс
 const monthTitle = await page.locator('.cal__title').innerText();
 if (!/[а-я]/i.test(monthTitle)) problems.push(`месяц в календаре не по-русски: ${monthTitle}`);
 
-await page.locator('.cal__day:not(.cal__day--out)').nth(9).click();
+await page.locator('.cal__day:not(.cal__day--out):not(.cal__day--off)').last().click();
 await page.waitForTimeout(700);
 const picked = await page.locator('.date__input').first().inputValue();
 if (!/^\d{2}\.\d{2}\.\d{4}$/.test(picked)) problems.push(`дата после выбора: «${picked}»`);
