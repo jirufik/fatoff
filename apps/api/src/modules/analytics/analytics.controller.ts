@@ -1,6 +1,6 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 
-import type { AccountOverviewDto } from '@fatoff/contracts';
+import type { AccountOverviewDto, PeriodSummaryDto } from '@fatoff/contracts';
 
 import { processHttpError } from '../../common/error-patterns';
 import { AnalyticsService } from './analytics.service';
@@ -8,6 +8,20 @@ import { AnalyticsService } from './analytics.service';
 @Controller('accounts')
 export class AnalyticsController {
   constructor(private readonly analytics: AnalyticsService) {}
+
+  /** Сводка за период для главного экрана; без дат — последние семь дней. */
+  @Get(':id/summary')
+  async summary(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<PeriodSummaryDto> {
+    try {
+      return await this.analytics.summary(id, from, to);
+    } catch (error) {
+      processHttpError(error);
+    }
+  }
 
   @Get(':id/overview')
   async overview(
