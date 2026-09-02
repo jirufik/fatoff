@@ -11,8 +11,22 @@
  * «28.08.2026», а не только выбрать мышью.
  */
 const props = withDefaults(
-  defineProps<{ modelValue: string; placeholder?: string; clearable?: boolean }>(),
-  { placeholder: 'дд.мм.гггг', clearable: true },
+  defineProps<{
+    modelValue: string
+    placeholder?: string
+    clearable?: boolean
+    /**
+     * Запретить будущее.
+     *
+     * Ставится там, где страница показывает прожитое: дневник, выгрузка,
+     * просмотр данных, период дневника в генераторе. Выбрав завтрашний день,
+     * человек получал пустой список и решал, что данные пропали (D-081).
+     *
+     * Период самого плана этим не ограничивается: он и строится вперёд.
+     */
+    noFuture?: boolean
+  }>(),
+  { placeholder: 'дд.мм.гггг', clearable: true, noFuture: false },
 )
 const emit = defineEmits<{ (event: 'update:modelValue', value: string): void }>()
 
@@ -51,6 +65,10 @@ const shown = computed(() =>
   open.value || editing.value ? typed.value : toHuman(props.modelValue),
 )
 
+/** Позже этого дня выбирать нельзя; пусто — можно любой. */
+const maxIso = computed(() => (props.noFuture ? todayIso() : ''))
+const beyond = (iso: string): boolean => maxIso.value !== '' && iso > maxIso.value
+
 const grid = computed(() => {
   const first = new Date(`${view.value}T00:00:00Z`)
   // сетка всегда начинается с понедельника той недели, в которую попало первое число
@@ -68,6 +86,7 @@ const grid = computed(() => {
       outside: iso.slice(0, 7) !== view.value.slice(0, 7),
       today: iso === todayIso(),
       selected: iso === props.modelValue,
+      blocked: beyond(iso),
     }
   })
 })
@@ -94,6 +113,8 @@ function toggle(): void {
 }
 
 function pick(iso: string): void {
+  // кнопка будущего дня и так отключена; проверка на случай, если позовут иначе
+  if (beyond(iso)) return
   pickedAt = Date.now()
   emit('update:modelValue', iso)
   // набранное подтягиваем к выбранному: на iOS поле может остаться в фокусе,
@@ -110,8 +131,18 @@ function shiftMonth(months: number): void {
   view.value = at.toISOString().slice(0, 10)
 }
 
-/** Набранное руками принимается в виде «28.08.2026» и «28.8.26». */
+/**
+ * Набранное руками принимается в виде «28.08.2026» и «28.8.26».
+ *
+ * Что принять нельзя — не остаётся в поле висеть: оно возвращается к тому, что
+ * сохранено. Иначе человек видит набранную дату и считает, что она применена, а
+ * применена прежняя.
+ */
 function commitTyped(): void {
+  const revert = (): void => {
+    typed.value = toHuman(props.modelValue)
+  }
+
   const raw = typed.value.trim()
   if (raw === '') {
     emit('update:modelValue', '')
@@ -119,14 +150,18 @@ function commitTyped(): void {
   }
 
   const parts = raw.split(/[.\-/\s]+/).map(Number)
-  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return revert()
 
   const [day, month, year] = parts
   const full = year < 100 ? 2000 + year : year
   const at = new Date(Date.UTC(full, month - 1, day))
-  if (at.getUTCMonth() !== month - 1 || at.getUTCDate() !== day) return
+  if (at.getUTCMonth() !== month - 1 || at.getUTCDate() !== day) return revert()
 
   const iso = at.toISOString().slice(0, 10)
+  // набранное руками проверяется тем же правилом, что и выбранное мышью:
+  // иначе запрет обходится набором с клавиатуры
+  if (beyond(iso)) return revert()
+
   emit('update:modelValue', iso)
   view.value = startOfMonth(iso)
 }
@@ -205,7 +240,9 @@ function todayIso(): string {
             'cal__day--out': cell.outside,
             'cal__day--today': cell.today,
             'cal__day--on': cell.selected,
+            'cal__day--off': cell.blocked,
           }"
+          :disabled="cell.blocked"
           @click="pick(cell.iso)"
         >
           {{ cell.day }}
@@ -321,6 +358,16 @@ function todayIso(): string {
   color: var(--ink-3);
   opacity: 0.55;
 }
+/* будущее выключено: видно, что день есть, но выбрать его нельзя */
+.cal__day--off {
+  color: var(--ink-3);
+  opacity: 0.32;
+  cursor: default;
+}
+.cal__day--off:hover {
+  background: none;
+}
+
 .cal__day--today {
   box-shadow: inset 0 0 0 1px var(--line);
 }
