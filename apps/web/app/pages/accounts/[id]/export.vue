@@ -86,11 +86,11 @@ const size = (bytes: number): string =>
       <div class="row row--wrap" style="align-items: flex-end; gap: 0.75rem">
         <label class="field" style="margin: 0; width: 10rem">
           <span>{{ t('common.from') }}</span>
-          <DateField v-model="from" />
+          <DateField v-model="from" no-future />
         </label>
         <label class="field" style="margin: 0; width: 10rem">
           <span>{{ t('common.to') }}</span>
-          <DateField v-model="to" />
+          <DateField v-model="to" no-future />
         </label>
         <label class="field" style="margin: 0; width: 12rem">
           <span>{{ t('export.digestRow') }}</span>

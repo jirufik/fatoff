@@ -216,11 +216,11 @@ const BALANCE_TONE: Record<string, string> = {
     <div class="card filters">
       <label class="filter">
         <span>{{ t('common.from') }}</span>
-        <DateField v-model="from" />
+        <DateField v-model="from" no-future />
       </label>
       <label class="filter">
         <span>{{ t('common.to') }}</span>
-        <DateField v-model="to" />
+        <DateField v-model="to" no-future />
       </label>
       <div class="scope">
         <span class="scope__label">{{ t('journal.scope') }}</span>
