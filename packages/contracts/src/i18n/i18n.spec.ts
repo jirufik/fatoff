@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { EN } from './en';
 import { RU } from './ru';
-import { pickText, translate, translateMessage } from './index';
+import { pickText, pluralForm, translate, translateMessage } from './index';
 
 describe('словари', () => {
   it('в обоих языках один и тот же набор ключей', () => {
@@ -13,8 +13,9 @@ describe('словари', () => {
   });
 
   it('подстановки совпадают в обеих версиях', () => {
+    // и простые подстановки, и слова при числе: `{days}` и `{days:день|дня|дней}`
     const holes = (text: string): string[] =>
-      [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
+      [...new Set([...text.matchAll(/\{(\w+)(?::[^{}]+)?\}/g)].map((match) => match[1]))].sort();
 
     const mismatched = Object.keys(RU).filter(
       (key) => holes(RU[key]).join() !== holes(EN[key]).join(),
@@ -41,6 +42,25 @@ describe('словари', () => {
       (key) => RU[key] === EN[key] && !SAME_ON_PURPOSE.has(key) && !/^[\d\s—-]*$/.test(RU[key]),
     );
     expect(copied).toEqual([]);
+  });
+
+  it('согласует слово с числом по правилам языка', () => {
+    const days = ['день', 'дня', 'дней'];
+    expect([1, 2, 5, 11, 21, 22, 112].map((n) => pluralForm('ru', n, days))).toEqual([
+      'день',
+      'дня',
+      'дней',
+      'дней',
+      'день',
+      'дня',
+      'дней',
+    ]);
+    // сервер пишет тысячи с пробелом — число всё равно узнаётся
+    expect(pluralForm('ru', '15 374', ['шаг', 'шага', 'шагов'])).toBe('шага');
+    expect(pluralForm('en', 1, ['day', 'days'])).toBe('day');
+    expect(pluralForm('en', 3, ['day', 'days'])).toBe('days');
+    expect(translate('ru', 'msg.analysis.protein.enough', { met: 1, days: 3 })).toContain('в 1 дне из 3');
+    expect(translate('ru', 'home.period.days', { days: 21, total: 30 })).toBe('по 21 дню из 30');
   });
 
   it('сообщение из старого плана отдаётся как есть', () => {
