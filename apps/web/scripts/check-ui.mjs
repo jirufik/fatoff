@@ -113,48 +113,165 @@ await page.evaluate(() => localStorage.setItem('fatoff:locale', 'ru'));
 await page.reload();
 await page.waitForTimeout(400);
 
-// ── обзор: сводка за период ─────────────────────────────────────────────────
+// ── обзор: главный экран по макету ──────────────────────────────────────────
 /*
- * Сводка отвечает на вопрос «в дефиците я или нет» (D-082).
+ * Первый экран собран по макету заказчика (D-083): приветствие, свежесть данных,
+ * баланс дня, последние дни, тренировки недели, питание сегодня, анализ словами
+ * и разделы в самом конце.
  *
- * Раньше здесь стояли пять чисел без периода и без подписи, откуда они. Теперь
- * у каждого числа сказано, по скольким дням оно посчитано, — и это не украшение:
- * среднее по трём дням из тридцати означает совсем не то, что по тридцати.
+ * Проверяется не картинка, а обещания экрана. У каждого среднего сказано, по
+ * скольким дням оно посчитано (D-082). Неизвестное не рисуется нулём: день без
+ * расхода не получает баланса, неделя без Apple Health — нулей в нормах.
+ * Подробности — синхронизации, анализа, разделов — раскрываются по нажатию.
  */
-await page.goto(`${BASE}/accounts/${ACCOUNT}`);
-await page.waitForSelector('section.card', { timeout: 15_000 });
-await page.waitForTimeout(1500);
+// текст элемента, которого может не быть: `innerText` ждал бы его по полминуты,
+// и шесть пропавших блоков превращались в три минуты тишины вместо списка проблем
+const textOf = async (selector) => {
+  const found = page.locator(selector);
+  return (await found.count()) > 0 ? (await found.first().innerText()).replace(/\s+/g, ' ').trim() : '';
+};
 
-// ждём именно сводку, но не падаем таймаутом: пусто — это внятная проблема,
+await page.goto(`${BASE}/accounts/${ACCOUNT}`);
+// ждём карточки, но не падаем таймаутом: пустой экран — это внятная проблема,
 // а не обрыв прогона на середине
-if ((await page.locator('.stats').count()) === 0) {
-  problems.push('на «Обзоре» нет сводки за период');
+await page.waitForSelector('.card', { timeout: 15_000 });
+await page.waitForTimeout(1800);
+
+const hello = await textOf('.home-hello h1');
+console.log('приветствие:', hello);
+if (!/^Привет/.test(hello)) problems.push(`на «Обзоре» нет приветствия: «${hello}»`);
+
+// «воскресенье, 13 сентября», а не 2026-09-13
+const helloDate = await textOf('.home-hello__date');
+if (!/^[а-яё]+, \d{1,2} [а-яё]+$/i.test(helloDate)) {
+  problems.push(`под приветствием не дата словами: «${helloDate}»`);
 }
 
-const periodTiles = await page.locator('.stats .stat__label').allInnerTexts();
-console.log('сводка за период:', periodTiles.map((s) => s.trim()).join(' | '));
-for (const word of ['расход', 'съедено', 'баланс']) {
-  if (!periodTiles.join(' ').toLowerCase().includes(word)) {
-    problems.push(`в сводке нет числа «${word}»`);
+// свежесть данных видна сразу, а источники по отдельности — по нажатию
+const syncLine = page.locator('.home-sync__line');
+if ((await syncLine.count()) === 0) {
+  problems.push('на «Обзоре» не видно, когда обновлялись данные');
+} else {
+  console.log('свежесть:', (await syncLine.innerText()).replace(/\s+/g, ' '));
+  if ((await page.locator('.home-sync__run').count()) !== 1) {
+    problems.push('рядом со свежестью нет кнопки «Синхронизировать»');
+  }
+  if (await page.locator('.home-sync__sources').isVisible()) {
+    problems.push('подробности синхронизации раскрыты сразу, а должны — по нажатию');
+  }
+  await syncLine.click();
+  await page.waitForTimeout(300);
+  const sources = (await page.locator('.home-sync__source').allInnerTexts()).join(' | ');
+  console.log('источники:', sources.replace(/\s+/g, ' ').slice(0, 200));
+  for (const source of ['YAZIO', 'Apple Health']) {
+    if (!sources.includes(source)) problems.push(`в подробностях синхронизации нет «${source}»`);
   }
 }
 
-const counted = await page.locator('.stats .tiny.muted').allInnerTexts();
-if (!counted.some((line) => /по \d+ дням из \d+/.test(line))) {
-  problems.push(`не сказано, по скольким дням посчитано среднее: ${counted.join(' | ')}`);
+// баланс дня: крупное число, шкала и коридор — или сказано, почему его нет
+const homeBalanceText = await textOf('.home-balance');
+console.log('баланс:', homeBalanceText.slice(0, 200));
+if (homeBalanceText === '') {
+  problems.push('на «Обзоре» нет энергетического баланса');
+} else if ((await page.locator('.home-balance__value').count()) > 0) {
+  if ((await page.locator('.home-scale__marker').count()) !== 1) problems.push('у баланса нет шкалы с отметкой');
+  if (!/200\D{1,3}500/.test(homeBalanceText)) problems.push('у баланса не назван целевой коридор числами');
+  for (const word of ['расход', 'съедено']) {
+    if (!homeBalanceText.toLowerCase().includes(word)) problems.push(`у баланса нет «${word}»`);
+  }
+  if (!/сегодня|за \d{1,2} [а-яё]+/i.test(homeBalanceText)) problems.push('у баланса не сказано, за какой он день');
+} else if (!/не посчитать/.test(homeBalanceText)) {
+  problems.push(`баланса нет, и не сказано почему: ${homeBalanceText.slice(0, 80)}`);
 }
 
-const verdict = await page.locator('.period__verdict').innerText().catch(() => '');
-console.log('вердикт по балансу:', verdict.replace(/\s+/g, ' ').slice(0, 80));
-if (verdict.trim() === '') problems.push('сводка не говорит, дефицит это или нет');
+// последние дни: шесть показателей, у каждого сказано, по скольким дням (D-082)
+const periodRows = (await page.locator('.home-period__row').allInnerTexts()).map((row) => row.replace(/\s+/g, ' ').trim());
+console.log('последние дни:', periodRows.join(' | ').slice(0, 300));
+if (periodRows.length !== 6) problems.push(`в «Последних днях» ${periodRows.length} строк, ожидалось 6`);
+for (const word of ['съедено', 'расход', 'баланс']) {
+  if (!periodRows.join(' ').toLowerCase().includes(word)) problems.push(`в «Последних днях» нет «${word}»`);
+}
+if (!periodRows.some((row) => /по \d+ дн\S* из \d+/.test(row))) {
+  problems.push('не сказано, по скольким дням посчитано среднее');
+}
 
-const bars = await page.locator('.period__chart .period__row').count();
-if (bars !== 2) problems.push(`полосок «съедено против расхода» ${bars}, ожидалось 2`);
+const verdict = await textOf('.home-period__verdict');
+console.log('вердикт по балансу:', verdict.slice(0, 100));
+if (verdict === '') problems.push('сводка не говорит, дефицит это или нет');
 
-const progressRows = await page.locator('table.data tbody tr').count();
-console.log('строк в прогрессе:', progressRows);
-if (progressRows !== 6) problems.push(`строк в таблице прогресса ${progressRows}, ожидалось 6`);
-await shot('overview-summary');
+// график «съедено против расхода»: по дню на каждый день периода, по умолчанию семь
+const chartDays = await page.locator('.home-bars__day').count();
+console.log('дней на графике:', chartDays);
+if (chartDays !== 7) problems.push(`на графике по дням ${chartDays} дней, ожидалось 7`);
+
+// тренировки недели: две нормы — или сказано, что за неделю данных ещё нет
+const weekText = await textOf('.home-week');
+console.log('тренировки недели:', weekText.slice(0, 200));
+if (weekText === '') {
+  problems.push('на «Обзоре» нет тренировок недели');
+} else {
+  const goals = await page.locator('.home-week__goal').count();
+  if (goals !== 2 && !weekText.includes('Apple Health')) {
+    problems.push(`у тренировок недели ${goals} норм, и не сказано почему`);
+  }
+}
+
+// питание сегодня: три полоски КБЖУ — или сказано, что сегодня ничего не записано
+const foodText = await textOf('.home-food');
+console.log('питание сегодня:', foodText.slice(0, 200));
+const macroBars = await page.locator('.home-food__macro').count();
+if (foodText === '') problems.push('на «Обзоре» нет питания за сегодня');
+else if (macroBars !== 3 && !/ничего не записано/.test(foodText)) {
+  problems.push(`в «Питании сегодня» ${macroBars} полосок, и не сказано почему`);
+}
+
+// анализ словами, и за каждой строкой — числа, на которых она стоит
+const analysis = await page.locator('.home-analysis__line').allInnerTexts();
+console.log('анализ:', analysis.map((line) => line.trim()).join(' | ').slice(0, 300));
+if (analysis.length === 0) problems.push('анализ словами пуст');
+if (analysis.some((line) => /[{}]|msg\./.test(line))) problems.push('в анализе осталась неподставленная строка');
+if ((await page.locator('.home-analysis__more > summary').count()) === 0) {
+  problems.push('у анализа нет «Подробнее»');
+} else {
+  await page.locator('.home-analysis__more > summary').click();
+  await page.waitForTimeout(300);
+  const basis = await page.locator('.home-analysis__basis').count();
+  if (basis !== analysis.length) problems.push(`«Подробнее» объясняет ${basis} строк анализа из ${analysis.length}`);
+}
+
+// графики «калории по дням» и «вес» заказчик просил убрать (пункт 6)
+const titles = (await page.locator('.card h2').allInnerTexts()).map((title) => title.trim());
+for (const gone of ['Калории по дням', 'Вес']) {
+  if (titles.includes(gone)) problems.push(`на «Обзоре» остался график «${gone}»`);
+}
+
+// разделы — в самом конце и свёрнуты; список раскрывается по нажатию
+const sectionLinks = page.locator('.home-sections__link');
+if ((await page.locator('.home-sections').count()) === 0) {
+  problems.push('на «Обзоре» нет разделов');
+} else {
+  if (await sectionLinks.first().isVisible()) problems.push('разделы раскрыты сразу, а должны быть свёрнуты');
+  const lastIsSections = await page.evaluate(
+    () => [...document.querySelectorAll('.page .card')].at(-1)?.classList.contains('home-sections') ?? false,
+  );
+  if (!lastIsSections) problems.push('разделы не в самом конце экрана');
+  await page.locator('.home-sections > summary').click();
+  await page.waitForTimeout(300);
+  const shown = await sectionLinks.evaluateAll((links) => links.filter((link) => link.offsetParent !== null).length);
+  if (shown !== 7) problems.push(`в раскрытых разделах ${shown} ссылок, ожидалось 7`);
+}
+await shot('overview-home');
+
+// период меняется, и график идёт за ним: тридцать дней — тридцать столбиков
+if ((await page.locator('.home-period__preset').count()) >= 3) {
+  await page.locator('.home-period__preset').nth(2).click();
+  await page.waitForTimeout(1800);
+  const monthDays = await page.locator('.home-bars__day').count();
+  console.log('дней на графике за месяц:', monthDays);
+  if (monthDays !== 30) problems.push(`после выбора 30 дней на графике ${monthDays} дней`);
+} else {
+  problems.push('у «Последних дней» нет выбора периода');
+}
 
 // ── день целиком ────────────────────────────────────────────────────────────
 await page.goto(`${BASE}/accounts/${ACCOUNT}/journal`);
@@ -1070,8 +1187,9 @@ const cyrillicOn = async () => page.evaluate(() => {
     if (
       node.parentElement?.closest(
         // имя аккаунта и название плана пишет сама пользовательница: это её
-        // текст, а не подпись интерфейса, и переводить его нечем
-        'td, .dish, .chip--mute, .swap__row, .dish-picker, .plan, .file-name, .tag, .head h1, .who__name, .email, .account__name',
+        // текст, а не подпись интерфейса, и переводить его нечем; буква в кружке на главном
+        // экране — первая буква её же имени
+        'td, .dish, .chip--mute, .swap__row, .dish-picker, .plan, .file-name, .tag, .head h1, .who__name, .email, .account__name, .home-hello__name, .home-hello__avatar',
       )
     ) {
       continue;

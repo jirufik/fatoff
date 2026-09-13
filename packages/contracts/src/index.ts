@@ -6,6 +6,7 @@ export * from './drive.js';
 export * from './dictionary.js';
 export * from './exports.js';
 export * from './health.js';
+export * from './home.js';
 export * from './i18n/index.js';
 export * from './journal.js';
 export * from './nutrients.js';

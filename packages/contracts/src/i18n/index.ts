@@ -23,9 +23,44 @@ export function translate(
 ): string {
   const template = DICTS[locale]?.[key] ?? RU[key] ?? key;
   if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (whole, name: string) =>
-    params[name] === undefined ? whole : String(params[name]),
-  );
+  return template
+    .replace(/\{(\w+):([^{}]+)\}/g, (whole, name: string, forms: string) =>
+      params[name] === undefined ? whole : pluralForm(locale, params[name], forms.split('|')),
+    )
+    .replace(/\{(\w+)\}/g, (whole, name: string) =>
+      params[name] === undefined ? whole : String(params[name]),
+    );
+}
+
+/**
+ * Слово, согласованное с числом: `{days:день|дня|дней}`.
+ *
+ * Подстановка печатает только слово — само число стоит в строке отдельно,
+ * `{days}`. По-русски форм три (1 день, 2 дня, 5 дней), по-английски две (1 day,
+ * 2 days). Без этого на экране выходило «82 дней» и «в 1 днях» — мелочь, по
+ * которой видно, что текст собирала программа, а не человек (D-085).
+ *
+ * Число приходит и строкой с пробелами между тысячами: так их пишет сервер.
+ */
+export function pluralForm(locale: Locale, value: string | number, forms: string[]): string {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : Number(String(value).replace(/[\s\u00a0\u202f]/g, '').replace('−', '-').replace(',', '.'));
+  const last = forms[forms.length - 1] ?? '';
+  if (!Number.isFinite(parsed)) return last;
+  const n = Math.abs(parsed);
+
+  if (locale === 'ru') {
+    // дробное согласуется с родительным единственного: «1.5 дня»
+    if (!Number.isInteger(n)) return forms[1] ?? last;
+    const ones = n % 10;
+    const tens = n % 100;
+    if (ones === 1 && tens !== 11) return forms[0] ?? last;
+    if (ones >= 2 && ones <= 4 && (tens < 12 || tens > 14)) return forms[1] ?? last;
+    return forms[2] ?? last;
+  }
+  return n === 1 ? (forms[0] ?? last) : (forms[1] ?? last);
 }
 
 /**
