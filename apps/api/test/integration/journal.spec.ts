@@ -7,6 +7,7 @@ import {
   Account,
   BodyValue,
   HealthDaily,
+  HealthImport,
   HealthSleep,
   HealthWorkout,
   SyncRun,
@@ -254,7 +255,7 @@ describe('день целиком', () => {
    * появится одно число, а на «Дне целиком» другое, и никто не заметит (D-082).
    */
   it('сводка за период сходится с тем, что журнал показывает по дням', async () => {
-    const analytics = new AnalyticsService(em);
+    const analytics = new AnalyticsService(em, new AccountFactsService(em));
     const from = '2026-08-01';
     const to = '2026-08-10';
 
@@ -279,10 +280,21 @@ describe('день целиком', () => {
     expect(summary.eaten.total).toBeCloseTo(sum(withFood.map((day) => day.energyInKcal!)), 0);
     expect(summary.burned.total).toBeCloseTo(sum(withBurn.map((day) => day.energyOutKcal!)), 0);
     expect(summary.balance.total).toBeCloseTo(sum(withBoth.map((day) => day.balanceKcal!)), 0);
+
+    // тренировки — те же, что у дней журнала. Раньше запрос сводки терял тройку
+    // подстановок, тренировки получали вместо аккаунта и дат NULL и за любой
+    // период выходили нулём — без единой ошибки
+    expect(summary.workouts.count).toBe(page.items.reduce((total, day) => total + day.workouts, 0));
+    expect(summary.workouts.count).toBeGreaterThan(0);
+
+    // график и анализ стоят на тех же днях, что и итоги
+    expect(summary.series).toHaveLength(10);
+    expect(summary.series.filter((point) => point.eatenKcal !== null)).toHaveLength(withFood.length);
+    expect(summary.analysis.map((line) => line.key)).toEqual(['balance', 'stability', 'protein', 'activity']);
   });
 
   it('среднее за период считается по дням с данными, а не по всем подряд', async () => {
-    const analytics = new AnalyticsService(em);
+    const analytics = new AnalyticsService(em, new AccountFactsService(em));
     // месяц, в котором данных всего десять дней: если делить на 31, среднее втрое ниже
     const summary = await analytics.summary(account.id, '2026-08-01', '2026-08-31');
 
@@ -294,6 +306,94 @@ describe('день целиком', () => {
     expect(summary.eaten.avg).toBeCloseTo(avgOverDaysWithData, 0);
     // а по всем дням периода получилось бы заметно меньше — так считать нельзя
     expect(summary.eaten.avg!).toBeGreaterThan(summary.eaten.total! / summary.days);
+  });
+
+  it('главный экран берёт баланс последнего полного дня, а не сегодняшнего утра', async () => {
+    const analytics = new AnalyticsService(em, new AccountFactsService(em));
+    const [home, page] = await Promise.all([
+      analytics.home(account.id, TODAY),
+      journal.days(account.id, { pageSize: 100, from: '2026-08-01', to: TODAY }),
+    ]);
+
+    // 10 августа записан один завтрак, 1 августа — два приёма: полный день — 9-е
+    const full = page.items.find((day) => day.date === '2026-08-09')!;
+    expect(home.balance).toMatchObject({
+      date: '2026-08-09',
+      eatenKcal: full.energyInKcal,
+      burnedKcal: full.energyOutKcal,
+      balanceKcal: full.balanceKcal,
+    });
+
+    // питание за сегодня — те же записи, что журнал показывает за этот день
+    const today = page.items.find((day) => day.date === TODAY)!;
+    expect(home.food.entries).toBe(today.entries);
+    expect(home.food.eaten.energyKcal).toBeCloseTo(today.energyInKcal!, 0);
+    expect(home.food.meals.map((meal) => meal.meal)).toEqual(['breakfast']);
+    expect(home.food.targets.proteinG).not.toBeNull();
+
+    expect(home.freshness.yazio.syncedAt).not.toBeNull();
+    expect(home.freshness.yazio.dataTo).toBe(TODAY);
+    expect(home.freshness.health).toEqual({
+      importedAt: null,
+      exportedAt: null,
+      dataTo: '2026-08-09',
+      completeTo: '2026-08-09',
+    });
+  });
+
+  it('день, в который собрана выгрузка Apple Health, полным днём не считается', async () => {
+    const analytics = new AnalyticsService(em, new AccountFactsService(em));
+    const fork = em.fork();
+    // выгрузку собрали 9 августа днём: расход за 9-е в ней обрезан на часе сборки
+    fork.persist(
+      fork.create(HealthImport, {
+        account: fork.getReference(Account, account.id),
+        filePath: 'export.xml',
+        sizeBytes: 0,
+        status: 'done',
+        exportedAt: '2026-08-09 15:00:00',
+        bytesRead: 0,
+        records: 0,
+        workouts: 0,
+        days: 0,
+        typeCounts: {},
+        warnings: [],
+        cancelRequested: false,
+        finishedAt: new Date(),
+        createdAt: new Date(),
+      }),
+    );
+    await fork.flush();
+
+    const home = await analytics.home(account.id, TODAY);
+    expect(home.freshness.health).toMatchObject({
+      exportedAt: '2026-08-09 15:00:00',
+      dataTo: '2026-08-09',
+      completeTo: '2026-08-08',
+    });
+    // 9-е было единственным полным днём: без него честнее сказать, что баланса нет
+    expect(home.balance).toBeNull();
+  });
+
+  it('неделю, за которую часы ещё не приехали, главный экран не рисует нулями', async () => {
+    const analytics = new AnalyticsService(em, new AccountFactsService(em));
+
+    // 10 августа — понедельник, а часы известны по 9-е: у этой недели данных нет
+    const fresh = await analytics.home(account.id, TODAY);
+    expect(fresh.week).toMatchObject({ from: TODAY, knownTo: '2026-08-09', workouts: null });
+    expect(fresh.week.strength.count).toBeNull();
+
+    // у прошлой — есть: 9 августа прогулка на час и силовая
+    const past = await analytics.home(account.id, '2026-08-09');
+    expect(past.week).toMatchObject({
+      from: '2026-08-03',
+      to: '2026-08-09',
+      workouts: 2,
+      minutes: 105,
+      energyKcal: 310,
+    });
+    expect(past.week.strength).toEqual({ count: 1, goal: 2 });
+    expect(past.week.cardio).toEqual({ minutes: 60, count: 1, goal: 150 });
   });
 
   it('сортирует по белку и держит страницу', async () => {

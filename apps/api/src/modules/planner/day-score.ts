@@ -1,4 +1,9 @@
-import { message, type ScoreBreakdownDto, type ScorePartDto } from '@fatoff/contracts';
+import {
+  DEFICIT_CORRIDOR,
+  message,
+  type ScoreBreakdownDto,
+  type ScorePartDto,
+} from '@fatoff/contracts';
 
 import { EA_THRESHOLD } from './targets';
 
@@ -19,8 +24,14 @@ import { EA_THRESHOLD } from './targets';
  * утверждения, и растворять второе в баллах значит его спрятать.
  */
 
-/** Целевой коридор дефицита: в нём балансу ставится полный балл. */
-export const DEFICIT_CORRIDOR: [number, number] = [200, 500];
+/**
+ * Целевой коридор дефицита: в нём балансу ставится полный балл.
+ *
+ * Живёт в общем пакете: по той же границе главный экран красит баланс дня, и
+ * кольцо оценки не должно хвалить за то, за что шкала на главном экране
+ * предупреждает (D-083).
+ */
+export { DEFICIT_CORRIDOR };
 /** На сколько килокалорий за границей коридора балл падает до нуля. */
 const BALANCE_FALLOFF = 400;
 
