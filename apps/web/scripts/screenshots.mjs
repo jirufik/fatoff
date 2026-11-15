@@ -37,7 +37,7 @@ const GENERATE = { ru: 'Сгенерировать', en: 'Generate' };
 await mkdir(OUT, { recursive: true });
 const browser = await chromium.launch();
 
-async function session(locale, { width = 1440, height = 900, theme = 'light', mobile = false } = {}) {
+async function session(locale, { width = 1440, height = 900, theme = 'dark', mobile = false } = {}) {
   const context = await browser.newContext({
     viewport: { width, height },
     deviceScaleFactor: mobile ? 3 : 1.5,
@@ -134,14 +134,7 @@ for (const locale of ['en', 'ru']) {
   await shoot(page, `${locale}-data`);
   await context.close();
 
-  // тёмная гамма и телефон — по одному кадру, чтобы было видно, что они есть
-  const dark = await session(locale, { theme: 'dark' });
-  await dark.page.goto(acc);
-  await dark.page.waitForSelector('.card', { timeout: 15_000 });
-  await settle(dark.page, 1200);
-  await shoot(dark.page, `${locale}-home-dark`);
-  await dark.context.close();
-
+  // телефон — одним кадром, чтобы было видно, что раскладка под него есть
   const phone = await session(locale, { width: 360, height: 780, mobile: true });
   await phone.page.goto(acc);
   await phone.page.waitForSelector('.card', { timeout: 15_000 });

@@ -81,12 +81,9 @@
 
 ![Просмотр данных](docs/screenshots/ru-data.png)
 
-**Тёмная тема и телефон:**
+**На телефоне:**
 
-<p>
-  <img src="docs/screenshots/ru-home-dark.png" alt="Обзор в тёмной теме" width="68%">
-  <img src="docs/screenshots/ru-home-phone.png" alt="Обзор на телефоне" width="28%">
-</p>
+<img src="docs/screenshots/ru-home-phone.png" alt="Обзор на телефоне" width="320">
 
 ## Форматы выгрузки
 
