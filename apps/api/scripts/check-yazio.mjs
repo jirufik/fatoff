@@ -4,30 +4,23 @@
  * выгрузка. Не тест — в CI ему делать нечего, он ходит в сеть и требует
  * настоящих учётных данных.
  *
- *   YAZIO_EMAIL=... YAZIO_PASSWORD=... pnpm --filter @fatoff/api run check:yazio
+ *   YAZIO_CLIENT_ID=... YAZIO_CLIENT_SECRET=... YAZIO_EMAIL=... YAZIO_PASSWORD=... pnpm --filter @fatoff/api run check:yazio
  */
 import process from 'node:process';
 
 const BASE = process.env.YAZIO_API_BASE ?? 'https://yzapi.yazio.com';
 const VERSION = process.env.YAZIO_API_VERSION ?? 'v9';
 
-const CLIENTS = {
-  v9: {
-    id: '<YAZIO_CLIENT_ID_V9>',
-    // scan-secrets: allow — пара самого приложения YAZIO: одна на все
-    // установки и извлекаемая из клиента, а не чей-то личный ключ
-    secret: '<YAZIO_CLIENT_SECRET_V9>',
-  },
-  default: {
-    id: '<YAZIO_CLIENT_ID_V22>',
-    // scan-secrets: allow — пара самого приложения YAZIO: одна на все
-    // установки и извлекаемая из клиента, а не чей-то личный ключ
-    secret: '<YAZIO_CLIENT_SECRET_V22>',
-  },
-};
+// пара приложения YAZIO — из окружения, в репозитории её нет (D-086)
+const client = { id: process.env.YAZIO_CLIENT_ID, secret: process.env.YAZIO_CLIENT_SECRET };
 
 const email = process.env.YAZIO_EMAIL ?? process.argv[2];
 const password = process.env.YAZIO_PASSWORD ?? process.argv[3];
+
+if (!client.id || !client.secret) {
+  console.error('Нужна пара приложения YAZIO: YAZIO_CLIENT_ID и YAZIO_CLIENT_SECRET.');
+  process.exit(2);
+}
 
 if (!email || !password) {
   console.error('Нужны учётные данные: YAZIO_EMAIL и YAZIO_PASSWORD (или два аргумента).');
@@ -36,8 +29,6 @@ if (!email || !password) {
 
 const today = new Date().toISOString().slice(0, 10);
 const monthAgo = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
-
-const client = CLIENTS[VERSION] ?? CLIENTS.default;
 
 const login = await fetch(`${BASE}/${VERSION}/oauth/token`, {
   method: 'POST',

@@ -62,6 +62,9 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       YAZIO_API_BASE: ${YAZIO_API_BASE:-https://yzapi.yazio.com}
       YAZIO_API_VERSION: ${YAZIO_API_VERSION:-v9}
+      # пара приложения YAZIO — только из .env, в репозитории её нет (D-086)
+      YAZIO_CLIENT_ID: ${YAZIO_CLIENT_ID}
+      YAZIO_CLIENT_SECRET: ${YAZIO_CLIENT_SECRET}
       YAZIO_CONCURRENCY: ${YAZIO_CONCURRENCY:-6}
       YAZIO_RESYNC_DAYS: ${YAZIO_RESYNC_DAYS:-3}
       YAZIO_TIMEOUT_MS: ${YAZIO_TIMEOUT_MS:-30000}

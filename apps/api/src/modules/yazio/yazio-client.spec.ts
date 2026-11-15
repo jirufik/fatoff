@@ -35,6 +35,7 @@ const clientWith = (
   const client = new YazioClient({
     email: 'user@example.com',
     password: 'secret',
+    client: { id: 'app-id', secret: 'app-secret' },
     fetchImpl: impl,
     sleep: async () => undefined,
     ...overrides,
@@ -57,16 +58,16 @@ describe('YazioClient — авторизация', () => {
     const body = JSON.parse(String(login!.init.body)) as Record<string, string>;
     expect(body.grant_type).toBe('password');
     expect(body.username).toBe('user@example.com');
-    expect(body.client_id).toMatch(/^1_/); // пара v9
+    expect(body.client_id).toBe('app-id');
+    expect(body.client_secret).toBe('app-secret');
     expect(client.tokens.accessToken).toBe('a1');
     expect(saved).toHaveLength(1);
   });
 
-  it('подставляет пару client_id для v22, а не для v9', async () => {
-    const { client, calls } = clientWith(() => reply(200, TOKEN), { version: 'v22' });
-    await client.login();
-    const body = JSON.parse(String(calls[0].init.body)) as Record<string, string>;
-    expect(body.client_id).toMatch(/^3_/);
+  it('без пары приложения не ходит в YAZIO, а говорит, чего не хватает', async () => {
+    const { client, calls } = clientWith(() => reply(200, TOKEN), { client: undefined });
+    await expect(client.login()).rejects.toThrow(/YAZIO_CLIENT_ID/);
+    expect(calls).toHaveLength(0);
   });
 
   it('превращает 400 на входе в понятную ошибку', async () => {
@@ -137,6 +138,7 @@ describe('YazioClient — авторизация', () => {
     const { impl } = fakeFetch((url) => (url.includes('/oauth/token') ? reply(400) : reply(401)));
     const client = new YazioClient({
       email: 'user@example.com',
+      client: { id: 'app-id', secret: 'app-secret' },
       fetchImpl: impl,
       sleep: async () => undefined,
       tokens: { accessToken: 'stale', refreshToken: 'revoked' },
