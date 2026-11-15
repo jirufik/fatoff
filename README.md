@@ -15,6 +15,10 @@ with health data makes no external requests.
 > The project is not affiliated with YAZIO or Apple. The YAZIO API it talks to
 > is undocumented and may change at any time. Nothing here is medical advice.
 
+![Overview: energy balance, last days, workouts](docs/screenshots/en-home.png)
+
+<sub>All screenshots show the built-in demo account: made-up history, no real person's data.</sub>
+
 ## What it does
 
 - **Sync a YAZIO account** — by e-mail and password, or with a ready token for
@@ -60,6 +64,35 @@ The interface is bilingual (Russian and English) — labels, setting description
 the field reference, the planner's built-in documentation and the PDFs. It has
 light and dark modes in four colour schemes (Tokyo Night, Catppuccin, Nord,
 Graphite).
+
+## Screenshots
+
+**Full day** — intake and expenditure side by side, each meal expandable, workouts and the day score with its reasons:
+
+![Full day](docs/screenshots/en-day.png)
+
+**Plan builder** — targets from the person's own data next to the YAZIO goals, every number with its source:
+
+![Daily targets](docs/screenshots/en-planner.png)
+
+**A generated week** — meals taken whole from the diary, training scheduled, notes where something did not add up:
+
+![Generated plan](docs/screenshots/en-plan.png)
+
+**How it works** — the planner explains itself, with the live numbers of the account:
+
+![How it works](docs/screenshots/en-guide.png)
+
+**Data** — everything in the database, filtered and paged:
+
+![Data browser](docs/screenshots/en-data.png)
+
+**Dark theme and phone:**
+
+<p>
+  <img src="docs/screenshots/en-home-dark.png" alt="Overview in the dark theme" width="68%">
+  <img src="docs/screenshots/en-home-phone.png" alt="Overview on a phone" width="28%">
+</p>
 
 ## Engineering highlights
 
@@ -151,6 +184,18 @@ missing translations, weak contrast, duplicate `id`s and horizontal scroll at
 ```bash
 pnpm exec playwright install chromium          # once
 ACCOUNT=<uuid> SHOTS=/tmp/shots pnpm --filter @fatoff/web run check:ui
+```
+
+README screenshots are taken from the demo account on a separate empty
+database — the development database is a copy of production, and real data
+would end up in the picture. The script refuses to run if the database holds
+any real account:
+
+```bash
+docker exec fatoff-develop-postgresql psql -U fatoff -d postgres -c 'create database fatoff_shots'
+pnpm --filter @fatoff/web build
+cd apps/api && DB_NAME=fatoff_shots SCHEDULES_ENABLED=false node dist/main   # not via turbo: it drops DB_NAME
+BASE=http://localhost:4290 PASSWORD=… pnpm --filter @fatoff/web run screenshots
 ```
 
 ## Documentation

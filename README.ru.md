@@ -6,6 +6,10 @@
 показывает состояние в браузере и собирает из накопленного файлы, которые можно
 отдать языковой модели на анализ.
 
+![Обзор: баланс энергии, последние дни, тренировки](docs/screenshots/ru-home.png)
+
+<sub>На всех снимках — встроенный демо-аккаунт: выдуманная история, данных живого человека нет.</sub>
+
 - **Архитектура и план** — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Apple Health: разбор и сведение** — [docs/APPLE-HEALTH.md](docs/APPLE-HEALTH.md)
 - **Питание и тренировки: что говорят источники и её данные** — [docs/ANALYSIS-NUTRITION.md](docs/ANALYSIS-NUTRITION.md)
@@ -54,6 +58,35 @@
 присылает код и числа, предложение собирает фронт (D-044).
 Шрифты — Inter и JetBrains Mono — лежат рядом с сервисом: со страницы с данными
 о здоровье не уходит ни одного внешнего запроса.
+
+## Как это выглядит
+
+**День целиком** — приход и расход рядом, приёмы пищи раскрываются до состава, тренировки и оценка дня с разбором:
+
+![День целиком](docs/screenshots/ru-day.png)
+
+**Режим** — нормы от её собственных данных рядом с целями YAZIO, у каждого числа источник:
+
+![Нормы на день](docs/screenshots/ru-planner.png)
+
+**Собранная неделя** — приёмы пищи из дневника целиком, расписание тренировок, замечания там, где не сошлось:
+
+![Готовый режим](docs/screenshots/ru-plan.png)
+
+**Как это работает** — генератор объясняет себя на числах самого аккаунта:
+
+![Как это работает](docs/screenshots/ru-guide.png)
+
+**Данные** — всё, что лежит в базе, с фильтрами и постранично:
+
+![Просмотр данных](docs/screenshots/ru-data.png)
+
+**Тёмная тема и телефон:**
+
+<p>
+  <img src="docs/screenshots/ru-home-dark.png" alt="Обзор в тёмной теме" width="68%">
+  <img src="docs/screenshots/ru-home-phone.png" alt="Обзор на телефоне" width="28%">
+</p>
 
 ## Форматы выгрузки
 
@@ -183,6 +216,17 @@ PostgreSQL и подставной сервер YAZIO — сеть им не н�
 ```bash
 pnpm exec playwright install chromium          # один раз
 ACCOUNT=<uuid> SHOTS=/tmp/shots pnpm --filter @fatoff/web run check:ui
+```
+
+Снимки для README снимаются с демо-аккаунта на отдельной пустой базе — в базе
+разработки лежит копия рабочей, и живые данные попали бы в кадр. Скрипт сам
+отказывается снимать, если в базе есть хоть один настоящий аккаунт:
+
+```bash
+docker exec fatoff-develop-postgresql psql -U fatoff -d postgres -c 'create database fatoff_shots'
+pnpm --filter @fatoff/web build
+cd apps/api && DB_NAME=fatoff_shots SCHEDULES_ENABLED=false node dist/main   # не через turbo: он съест DB_NAME
+BASE=http://localhost:4290 PASSWORD=… pnpm --filter @fatoff/web run screenshots
 ```
 
 Миграции генерируются из сущностей, руками SQL никто не пишет:

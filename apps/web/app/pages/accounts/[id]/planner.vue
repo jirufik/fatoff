@@ -596,7 +596,7 @@ const BALANCE_TONE: Record<string, string> = {
 }
 
 const signedKcal = (value: number | null | undefined): string =>
-  value === null || value === undefined ? '—' : `${value > 0 ? '+' : ''}${num(value)} ккал`
+  value === null || value === undefined ? '—' : `${value > 0 ? '+' : ''}${num(value)} ${t('common.kcal')}`
 
 /** Русское число со словом; в английском форма одна на всё, кроме единицы. */
 function notesLabel(count: number): string {
@@ -1085,11 +1085,11 @@ function nextMonday(): string {
           </span>
           <span class="day__block">
             <span class="day__label">{{ t('planner.day.target') }}</span>
-            <span class="day__value">{{ num(day.targets.energyKcal) }} ккал</span>
+            <span class="day__value">{{ num(day.targets.energyKcal) }} {{ t('common.kcal') }}</span>
           </span>
           <span class="day__block">
             <span class="day__label">{{ t('planner.day.inMenu') }}</span>
-            <span class="day__value">{{ num(day.totals.energyKcal) }} ккал</span>
+            <span class="day__value">{{ num(day.totals.energyKcal) }} {{ t('common.kcal') }}</span>
             <MacroSet
               :protein="day.totals.proteinG"
               :carbs="day.totals.carbsG"
@@ -1120,7 +1120,7 @@ function nextMonday(): string {
                       .join(', ')
               }}
             </span>
-            <span v-if="day.workoutKcal" class="tiny muted">{{ num(day.workoutKcal) }} ккал</span>
+            <span v-if="day.workoutKcal" class="tiny muted">{{ num(day.workoutKcal) }} {{ t('common.kcal') }}</span>
           </span>
           <span v-if="day.warnings.length" class="chip chip--warn">
             {{ notesLabel(day.warnings.length) }}
@@ -1169,7 +1169,7 @@ function nextMonday(): string {
                 @change="setWorkoutTime(day, index, ($event.target as HTMLInputElement).value)"
               />
               <span class="tiny muted">мин</span>
-              <span class="mono tiny workout__kcal">≈ {{ num(workout.energyKcal) }} ккал</span>
+              <span class="mono tiny workout__kcal">≈ {{ num(workout.energyKcal) }} {{ t('common.kcal') }}</span>
               <button class="row-btn" type="button" :title="t('planner.remove')" @click="removeWorkout(day, index)">
                 <AppIcon name="trash" :size="13" />
               </button>
@@ -1188,7 +1188,7 @@ function nextMonday(): string {
               <div class="row row--between">
                 <strong>{{ pick(MEAL_TITLES[meal.meal]) }}</strong>
                 <span class="mono tiny">
-                  {{ num(meal.totals.energyKcal) }} / {{ num(meal.targetKcal) }} ккал
+                  {{ num(meal.totals.energyKcal) }} / {{ num(meal.targetKcal) }} {{ t('common.kcal') }}
                 </span>
               </div>
               <p v-if="meal.comboFrom" class="tiny muted meal-card__from">
