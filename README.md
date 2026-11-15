@@ -87,12 +87,9 @@ Graphite).
 
 ![Data browser](docs/screenshots/en-data.png)
 
-**Dark theme and phone:**
+**On a phone:**
 
-<p>
-  <img src="docs/screenshots/en-home-dark.png" alt="Overview in the dark theme" width="68%">
-  <img src="docs/screenshots/en-home-phone.png" alt="Overview on a phone" width="28%">
-</p>
+<img src="docs/screenshots/en-home-phone.png" alt="Overview on a phone" width="320">
 
 ## Engineering highlights
 
