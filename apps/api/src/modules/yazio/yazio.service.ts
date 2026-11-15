@@ -22,11 +22,17 @@ export class YazioService {
     private readonly em: EntityManager,
   ) {}
 
+  /** Пара OAuth приложения YAZIO — из окружения, а не из кода (D-086). */
+  private get appClient(): { id: string; secret: string } {
+    return { id: this.cfg.get('YAZIO_CLIENT_ID'), secret: this.cfg.get('YAZIO_CLIENT_SECRET') };
+  }
+
   clientFor(account: Account): YazioClient {
     return new YazioClient({
       email: account.email,
       // у аккаунта через Apple ID пароля нет — клиент живёт на токене (D-017)
       password: account.passwordEnc ? this.crypto.decrypt(account.passwordEnc) : undefined,
+      client: this.appClient,
       base: this.cfg.get('YAZIO_API_BASE'),
       version: this.cfg.get('YAZIO_API_VERSION'),
       timeoutMs: this.cfg.get('YAZIO_TIMEOUT_MS'),
@@ -89,6 +95,7 @@ export class YazioService {
   private probe(options: Pick<YazioClientOptions, 'email' | 'password' | 'tokens'>): YazioClient {
     return new YazioClient({
       ...options,
+      client: this.appClient,
       base: this.cfg.get('YAZIO_API_BASE'),
       version: this.cfg.get('YAZIO_API_VERSION'),
       timeoutMs: this.cfg.get('YAZIO_TIMEOUT_MS'),

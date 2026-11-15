@@ -26,15 +26,28 @@ const props = withDefaults(
      */
     noFuture?: boolean
   }>(),
-  { placeholder: 'дд.мм.гггг', clearable: true, noFuture: false },
+  { placeholder: undefined, clearable: true, noFuture: false },
 )
 const emit = defineEmits<{ (event: 'update:modelValue', value: string): void }>()
 
-const MONTHS = [
-  'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
-  'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
-]
-const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
+const { t, locale } = useI18n()
+
+/** Оба языка рядом, как в справочниках (D-044): календарь не должен оставаться русским. */
+const MONTHS = {
+  ru: [
+    'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
+    'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
+  ],
+  en: [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ],
+}
+const WEEKDAYS_BY_LOCALE = {
+  ru: ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'],
+  en: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+}
+const WEEKDAYS = computed(() => WEEKDAYS_BY_LOCALE[locale.value])
 
 const open = ref(false)
 const typed = ref('')
@@ -93,7 +106,7 @@ const grid = computed(() => {
 
 const title = computed(() => {
   const at = new Date(`${view.value}T00:00:00Z`)
-  return `${MONTHS[at.getUTCMonth()]} ${at.getUTCFullYear()}`
+  return `${MONTHS[locale.value][at.getUTCMonth()]} ${at.getUTCFullYear()}`
 })
 
 /** Открыть календарь — если это не отголосок только что сделанного выбора. */
@@ -205,7 +218,7 @@ function todayIso(): string {
         ref="field"
         class="date__input"
         :value="shown"
-        :placeholder="placeholder"
+        :placeholder="placeholder ?? t('common.datePlaceholder')"
         inputmode="numeric"
         @focus="editing = true; typed = toHuman(modelValue)"
         @blur="editing = false"
@@ -214,16 +227,16 @@ function todayIso(): string {
         @change="commitTyped"
         @keydown.enter.prevent="commitTyped(); open = false"
       />
-      <button class="date__toggle" type="button" aria-label="Календарь" @click="toggle">
+      <button class="date__toggle" type="button" :aria-label="t('date.calendar')" @click="toggle">
         <AppIcon name="calendar" :size="15" />
       </button>
     </div>
 
     <div v-if="open" class="cal">
       <div class="cal__head">
-        <button type="button" class="cal__nav" aria-label="Предыдущий месяц" @click="shiftMonth(-1)">‹</button>
+        <button type="button" class="cal__nav" :aria-label="t('date.prevMonth')" @click="shiftMonth(-1)">‹</button>
         <span class="cal__title">{{ title }}</span>
-        <button type="button" class="cal__nav" aria-label="Следующий месяц" @click="shiftMonth(1)">›</button>
+        <button type="button" class="cal__nav" :aria-label="t('date.nextMonth')" @click="shiftMonth(1)">›</button>
       </div>
 
       <div class="cal__week">
@@ -250,8 +263,8 @@ function todayIso(): string {
       </div>
 
       <div class="cal__foot">
-        <button type="button" class="btn btn--small" @click="pick(todayIso())">сегодня</button>
-        <button v-if="clearable" type="button" class="btn btn--small" @click="pick('')">очистить</button>
+        <button type="button" class="btn btn--small" @click="pick(todayIso())">{{ t('common.today') }}</button>
+        <button v-if="clearable" type="button" class="btn btn--small" @click="pick('')">{{ t('common.clear') }}</button>
       </div>
     </div>
   </div>

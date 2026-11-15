@@ -12,7 +12,8 @@
     "lint": "echo 'lint: TODO'",
     "test": "echo 'no tests'",
     "postinstall": "nuxt prepare",
-    "check:ui": "node scripts/check-ui.mjs"
+    "check:ui": "node scripts/check-ui.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@fatoff/contracts": "workspace:*",

@@ -76,6 +76,8 @@ export function testConfig(overrides: Record<string, unknown> = {}) {
     SECRETS_KEY: '11'.repeat(32),
     YAZIO_API_BASE: 'http://127.0.0.1:0',
     YAZIO_API_VERSION: 'v9',
+    YAZIO_CLIENT_ID: 'test-client',
+    YAZIO_CLIENT_SECRET: 'test-client-secret',
     YAZIO_CONCURRENCY: 4,
     YAZIO_RESYNC_DAYS: 0,
     YAZIO_TIMEOUT_MS: 5_000,
