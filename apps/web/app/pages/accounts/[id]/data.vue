@@ -228,7 +228,7 @@ const time = (stamp: string | null | undefined): string =>
 
       <label v-if="tab === 'diary' || tab === 'products'" class="filter filter--grow">
         <span>{{ t('data.searchByName') }}</span>
-        <input v-model="search" type="text" placeholder="хлеб" />
+        <input v-model="search" type="text" :placeholder="t('data.search.placeholder')" />
       </label>
 
       <label v-if="tab === 'days'" class="check" style="align-self: flex-end; min-height: 44px">

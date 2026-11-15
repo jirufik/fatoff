@@ -92,7 +92,7 @@ export function scoreDay(input: ScoreInput): ScoreBreakdownDto {
       value: input.proteinG,
       target: targets.proteinG,
       weight: 20,
-      unit: 'г',
+      unit: 'g',
     }),
   );
 
@@ -102,7 +102,7 @@ export function scoreDay(input: ScoreInput): ScoreBreakdownDto {
       value: input.fiberG,
       target: targets.fiberG,
       weight: 10,
-      unit: 'г',
+      unit: 'g',
     }),
   );
 
@@ -122,7 +122,7 @@ export function scoreDay(input: ScoreInput): ScoreBreakdownDto {
       value: input.exerciseMin,
       target: targets.exerciseMin,
       weight: 15,
-      unit: 'мин',
+      unit: 'min',
     }),
   );
 
@@ -168,7 +168,8 @@ function atLeast(input: {
   value: number | null;
   target: number | null;
   weight: number;
-  unit: string;
+  /** Код единицы, а не подпись: слово подставляет словарь (D-044). */
+  unit: '' | 'g' | 'min';
 }): ScorePartDto {
   const { value, target } = input;
   const usable = target !== null && target > 0;
@@ -185,7 +186,7 @@ function atLeast(input: {
         ? message('score.no-data')
         : !usable
           ? message('score.no-target')
-          : message('score.of', { value: fmt(value), target: fmt(target), unit: input.unit }),
+          : message(input.unit ? `score.of.${input.unit}` : 'score.of', { value: fmt(value), target: fmt(target) }),
   };
 }
 

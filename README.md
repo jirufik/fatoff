@@ -1,300 +1,224 @@
 # FatOff
 
-Локальный сервис: выгружает аккаунт [YAZIO](https://www.yazio.com/) в свою базу,
-показывает состояние в браузере и собирает из накопленного файлы, которые можно
-отдать языковой модели на анализ.
+**English** · [Русский](README.ru.md)
 
-- **Архитектура и план** — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- **Apple Health: разбор и сведение** — [docs/APPLE-HEALTH.md](docs/APPLE-HEALTH.md)
-- **Питание и тренировки: что говорят источники и её данные** — [docs/ANALYSIS-NUTRITION.md](docs/ANALYSIS-NUTRITION.md)
-- **День целиком и генератор режима** — [docs/PLANNER-ARCHITECTURE.md](docs/PLANNER-ARCHITECTURE.md), [docs/PLANNER-PLAN.md](docs/PLANNER-PLAN.md)
-- **Ветки, окружения и правила репозитория** — [docs/GIT.md](docs/GIT.md)
-- **Публичный вход снаружи** — [docs/PUBLIC-ACCESS.md](docs/PUBLIC-ACCESS.md)
-- **Выгрузка Apple Health из Google Drive** — [docs/DRIVE-IMPORT.md](docs/DRIVE-IMPORT.md)
-- **Журнал решений** — [docs/DECISIONS.md](docs/DECISIONS.md)
-- **Разобранное API YAZIO** — [docs/YAZIO-API.md](docs/YAZIO-API.md)
+A self-hosted service that mirrors a [YAZIO](https://www.yazio.com/) account into
+its own database, merges it with an Apple Health export, shows the whole picture
+in the browser and builds files that can be handed to a language model for
+analysis. On top of that data sits a meal and training planner that composes
+days out of the person's own diary.
 
-## Что умеет
+It runs locally in Docker, behind a password. Nothing about a person's health
+leaves the machine: exports are built offline, fonts are bundled, and the page
+with health data makes no external requests.
 
-- добавить аккаунт YAZIO по почте и паролю, проверив вход;
-- добавить аккаунт, у которого пароля нет вовсе (вход через Apple ID), — по
-  готовому токену;
-- выгрузить историю от даты регистрации до сегодня, а дальше досинхронизировать
-  только изменившееся — за счёт дешёвого детектора дневных итогов;
-- открыть главный экран: баланс последнего полного дня со шкалой и целевым
-  коридором, последние дни с графиком «съедено против расхода», тренировки недели
-  против нормы ВОЗ, питание за сегодня и короткий анализ словами — у каждого числа
-  сказано, откуда оно и по скольким дням посчитано;
-- забрать выгрузку Apple Health из папки Google Drive — по расписанию или
-  кнопкой, — распознать её по содержимому и загрузить, пропустив уже знакомый
-  файл;
-- загрузить выгрузку Apple Health и свести её с дневником питания по дням:
-  YAZIO знает приход энергии, Apple Health — расход, вместе они дают баланс;
-- смотреть всё загруженное прямо в браузере — с фильтрами и постранично;
-- открыть день целиком: приход и расход рядом, раскрытие до состава каждого
-  приёма пищи, разбор расхода по тренировкам и оценка дня с разбором;
-- посчитать нормы от её собственных данных и показать их рядом с целями YAZIO;
-- собрать режим на день, неделю, месяц или произвольный период: меню из её же
-  приёмов пищи — завтрак, обед и ужин берутся из дневника целиком, тем же
-  составом, — и расписание тренировок в одном из четырёх режимов, с шаблонами;
-  готовый план правится руками — блюдо можно заменить, перевесить или закрепить;
-- прочитать прямо в сервисе, как всё это считается: страница «Как это работает»
-  объясняет формулы, порядок работы и каждую настройку человеческим языком;
-- хранить готовые планы в своём разделе: метки, поиск по названию, страницы,
-  просмотр плана целиком и выгрузка одним файлом PDF;
-- собрать файл за произвольный период в четырёх форматах;
-- держать несколько аккаунтов независимо.
+> The project is not affiliated with YAZIO or Apple. The YAZIO API it talks to
+> is undocumented and may change at any time. Nothing here is medical advice.
 
-Интерфейс — русский и английский, светлый и тёмный, с четырьмя цветовыми
-гаммами на выбор (Tokyo Night, Catppuccin, Nord, Графит); переключается
-мгновенно и целиком. Двуязычно всё: подписи, описания настроек, справочник
-полей, документация генератора и файлы PDF. Сервер фраз не сочиняет — он
-присылает код и числа, предложение собирает фронт (D-044).
-Шрифты — Inter и JetBrains Mono — лежат рядом с сервисом: со страницы с данными
-о здоровье не уходит ни одного внешнего запроса.
+![Overview: energy balance, last days, workouts](docs/screenshots/en-home.png)
 
-## Форматы выгрузки
+<sub>All screenshots show the built-in demo account: made-up history, no real person's data.</sub>
 
-| Формат | Что это | Когда брать |
-|---|---|---|
-| **Markdown** | готовый отчёт: профиль, сводка, ряд по дням, топ продуктов, микронутриенты, качество данных | вставить в чат с ИИ |
-| **TOON** | все таблицы, но имена колонок один раз в заголовке — втрое компактнее JSON | длинная история, экономия токенов |
-| **JSON** | полный машинный дамп всех таблиц | своя обработка |
-| **CSV** | файл на таблицу, в zip | Excel, инструменты анализа |
+## What it does
 
-Больше одного файла — на выходе zip.
+- **Sync a YAZIO account** — by e-mail and password, or with a ready token for
+  accounts that sign in with Apple ID and have no password at all. The first run
+  pulls the whole history since registration; later runs fetch only what changed,
+  thanks to a cheap detector built on daily totals.
+- **Import Apple Health** — a 2 GB export is parsed in about 20 seconds
+  (4.4 million records, 95 types, 8.6 years). It can be dropped into a folder or
+  picked up from Google Drive on a schedule; a file seen before is recognised by
+  checksum and skipped.
+- **Join intake with expenditure** — YAZIO knows what was eaten, Apple Health
+  knows what was burnt. Together they give an energy balance per day.
+- **Home screen** — balance of the last complete day against a target corridor,
+  recent days as "eaten vs burnt", the week's training against the WHO norm,
+  today's nutrition and a short analysis in words. Every number says where it
+  came from and how many days it is based on.
+- **Day in full** — intake and expenditure side by side, every meal expandable
+  down to its ingredients, workouts broken down, and a day score with an
+  explanation.
+- **Planner** — targets computed from the person's own data (not from tables),
+  shown next to the YAZIO goals. A plan for a day, week, month or any period:
+  breakfast, lunch and dinner are taken *whole* from the diary and scaled by a
+  single factor, and training is scheduled in one of four modes. A finished plan
+  can be edited by hand — swap, rescale or pin a dish — and is recomputed on the
+  server.
+- **Saved plans** — tags, search, pagination and a one-file PDF export.
+- **Exports** for a period in four formats:
 
-## Запуск
+  | Format | What it is | When to use |
+  |---|---|---|
+  | **Markdown** | a ready report: profile, summary, daily series, top foods, micronutrients, data quality | paste into an AI chat |
+  | **TOON** | all tables with column names once per header — about 3× more compact than JSON | long history, saving tokens |
+  | **JSON** | full machine dump of every table | your own processing |
+  | **CSV** | one file per table, zipped | Excel and analysis tools |
+
+- **Several accounts**, each with its own sync and Drive schedules.
+- **Demo account** — one button creates six months of made-up but plausible
+  history (diary, steps, sleep, workouts, weigh-ins, a ready plan). It is stored
+  in the same tables and computed by the same code as real data: there is no
+  "if demo" branch anywhere.
+
+The interface is bilingual (Russian and English) — labels, setting descriptions,
+the field reference, the planner's built-in documentation and the PDFs. It has
+light and dark modes in four colour schemes (Tokyo Night, Catppuccin, Nord,
+Graphite).
+
+## Screenshots
+
+**Full day** — intake and expenditure side by side, each meal expandable, workouts and the day score with its reasons:
+
+![Full day](docs/screenshots/en-day.png)
+
+**Plan builder** — targets from the person's own data next to the YAZIO goals, every number with its source:
+
+![Daily targets](docs/screenshots/en-planner.png)
+
+**A generated week** — meals taken whole from the diary, training scheduled, notes where something did not add up:
+
+![Generated plan](docs/screenshots/en-plan.png)
+
+**How it works** — the planner explains itself, with the live numbers of the account:
+
+![How it works](docs/screenshots/en-guide.png)
+
+**Data** — everything in the database, filtered and paged:
+
+![Data browser](docs/screenshots/en-data.png)
+
+**Dark theme and phone:**
+
+<p>
+  <img src="docs/screenshots/en-home-dark.png" alt="Overview in the dark theme" width="68%">
+  <img src="docs/screenshots/en-home-phone.png" alt="Overview on a phone" width="28%">
+</p>
+
+## Engineering highlights
+
+- **Raw data is the source of truth.** YAZIO responses are stored as they came;
+  every export table is computed from them by pure functions at build time.
+  Changing a counting rule needs no re-download, and all the arithmetic is
+  covered by tests.
+- **Self-check against YAZIO.** Each day's computed totals are reconciled with
+  the totals YAZIO reports. On a six-year account (2 377 days, 7 098 diary
+  entries) the first full run gave **zero** mismatches.
+- **Deterministic output.** An export never touches the network, and two runs
+  over the same data produce byte-identical files — PDFs included (the build
+  date is passed in from outside). A planner run is reproducible from its seed,
+  which is stored with the plan. Both are enforced by tests.
+- **Missing ≠ zero.** YAZIO omits a nutrient it does not know; an empty cell and
+  a zero stay different in JSON and TOON.
+- **Resilient sync.** A failed request becomes a row in `sync_warning` instead of
+  aborting the run; only bad credentials or a failed change detector stop it.
+- **The server never composes sentences.** Everything it reports travels as
+  `Message = { code, params }`; one dictionary serves both the UI and the PDF.
+  Untranslated strings are caught by tests and by a browser run, not by eye.
+- **One registry per concept.** Planner settings, meal sources and the field
+  reference are each described once; the form, the server-side limits and the
+  documentation are all generated from that single entry.
+- **Apple Health pitfalls handled.** Watch and phone measure the same thing
+  independently, so sources are never summed — one source per day and type.
+  YAZIO's own entries in Health are recognised as YAZIO, not as a second source.
+  A night is dated by the wake-up day. iOS writes the archive entry name in UTF-8
+  without setting the UTF-8 flag, so the archive is decoded by hand.
+- **Guarded workflow.** Three branches, three environments that share nothing
+  but the image (`main` — prod, `develop` — staging, `feature/*` — local). Git
+  hooks forbid direct commits to `main` and `develop`, require explicit approval
+  for merges and redeploy the environment after a merge. A pre-commit scanner
+  keeps secrets, personal data and identifying traces out of this public
+  repository, and the scanner has its own tests.
+
+## Stack
+
+| Layer | Choice |
+|---|---|
+| Monorepo | pnpm 10, Turborepo, Node 22 |
+| Backend | NestJS 11 (Express), MikroORM 6, PostgreSQL 17, Zod, Pino |
+| Frontend | Nuxt 4 in SPA mode, hand-written CSS, no component library |
+| Shared | `@fatoff/contracts` — types, nutrient registry, field reference, both dictionaries; built as ESM and CommonJS |
+| PDF | `pdfkit` with bundled Inter and JetBrains Mono, layout in code |
+| Tests | Vitest (unit and integration against a fake YAZIO server), Playwright for the UI run |
+
+```
+apps/api             NestJS — sync, storage, analytics, planner, exports, PDF
+apps/web             Nuxt SPA, served by the backend
+packages/contracts   shared types, registries and the ru/en dictionaries
+scripts              secret scanner, task tooling
+docs                 architecture, decision log, API notes (in Russian)
+```
+
+## Running
 
 ```bash
 cp .env.example .env
-# заполнить APP_PASSWORD, SESSION_SECRET и SECRETS_KEY:
+# fill in APP_PASSWORD, SESSION_SECRET and SECRETS_KEY:
 #   openssl rand -hex 32
-pnpm docker:up    # база и приложение одним стеком: 4090
+# and the YAZIO app OAuth pair, YAZIO_CLIENT_ID / YAZIO_CLIENT_SECRET —
+#   it is not in the repository; docs/YAZIO-API.md says how to obtain it
+pnpm docker:up    # database and app as one stack on :4090
 ```
 
-Прод — один стек `fatoff`: база и приложение в одном файле, как и у develop.
+Open `http://localhost:4090` and sign in with `APP_PASSWORD`. Then: *Add* →
+YAZIO e-mail and password → *Sync now* → *Export*. Nothing to load? *Create demo* on
+the accounts page builds the demo account.
 
-Сервис на `http://localhost:4090`. Вход — по `APP_PASSWORD`.
-
-Дальше: «Добавить» → почта и пароль YAZIO → «Синхронизировать» → «Выгрузить файл».
-
-**Нечего загружать?** На странице аккаунтов есть кнопка «Создать демо»: она
-соберёт аккаунт с выдуманной, но правдоподобной историей за полгода — дневник
-питания, шаги, сон, тренировки, взвешивания и один готовый план. Все разделы
-работают на нём так же, как на настоящих данных: никакой отдельной ветки для
-демо в расчётах нет (D-068). Синхронизировать его нечем, зато можно собрать
-заново — история заканчивается вчерашним днём и со временем стареет.
-
-Разделы аккаунта: **Обзор** (главный экран: баланс, последние дни, тренировки, питание, анализ), **Дни** (день целиком),
-**Режим** (генератор), **Планы** (сохранённое), **Как это работает**
-(документация), **Данные** (просмотр), **Синхронизация** (выгрузка, Apple Health,
-доступ), **Выгрузка файла**.
-
-## Ветки и окружения
-
-Три ветки — три окружения, и они не пересекаются (D-043, D-057):
-
-| ветка | что это | порт | база | как поднимается |
-|---|---|---|---|---|
-| `main` | прод | 4090 | `fatoff` в `fatoff-postgresql` (5482) | `pnpm db:up && pnpm docker:up` |
-| `develop` | общая проверка | 4092 | `fatoff` в `fatoff-develop-postgresql` (5483) | `pnpm develop:up` |
-| `feature/*` | своя работа | 4290 API, 4291 фронт | `fatoff_dev` в базе develop | `pnpm run dev` |
-
-У каждого окружения свои контейнеры, свой том и своя сеть. Фича-ветки в докер не
-уезжают: их запускают локально, и локальный сервер слушает все интерфейсы —
-работу видно с телефона и с соседней машины по адресу вида
-`http://<ip-этой-машины>:4291`.
-
-**Порядок один и обратного хода не имеет (D-069):**
-
-1. работа идёт в своей ветке — `feature/<что-делаем>` от `develop`;
-2. показывается **из этой же ветки**, на локальном контуре;
-3. и только после согласия человека сливается в `develop`;
-4. проверенное на `develop` — в `main`, тоже с согласия.
-
-Прямой коммит в `main` и в `develop` запрещён хуком: обе ветки собираются
-слиянием. Согласие передаётся явно, иначе слияние не пройдёт:
-
-```bash
-APPROVED_BY="кто одобрил" git merge --no-ff feature/<что-делаем>
-```
-
-Подставлять туда что попало, не спросив, — то же самое, что слить без спроса.
-
-## Разработка
+### Development
 
 ```bash
 pnpm install
-git config core.hooksPath .githooks    # проверка секретов перед коммитом
-pnpm develop:up                        # окружение develop: база 5483, сервис 4092
-pnpm --filter @fatoff/api run dev      # backend локально на :4290
-pnpm --filter @fatoff/web run dev      # фронт на :4291, /api проксируется на backend
+git config core.hooksPath .githooks    # secret scan before every commit
+pnpm develop:up                        # staging DB on 5483 and service on 4092
+pnpm --filter @fatoff/api run dev      # backend on :4290
+pnpm --filter @fatoff/web run dev      # frontend on :4291, /api proxied to the backend
+pnpm test                              # all tests (needs PostgreSQL, no network)
+pnpm scan                              # scan the whole repository for secrets
 ```
 
-Фронт слушает `0.0.0.0`, поэтому ветку задачи можно открыть не только на этой
-машине: `http://<ip-этой-машины>:4291`. Ради этого он так и настроен — работу
-полагается показывать из своей ветки, а не после слияния (D-069).
+Migrations are generated from entities: `pnpm --filter @fatoff/api run migration:create`.
 
-Локальная база наполняется копией рабочей — её не жалко:
-
-```bash
-docker exec fatoff-postgresql pg_dump -U fatoff fatoff > /tmp/fatoff.sql
-docker exec -i fatoff-develop-postgresql psql -U fatoff -c 'create database fatoff_dev'
-docker exec -i fatoff-develop-postgresql psql -U fatoff fatoff_dev < /tmp/fatoff.sql
-```
-
-## Что не попадает в репозиторий
-
-Репозиторий публичный, а сервис работает с дневником питания и историей
-здоровья живого человека. В git не уезжают ни секреты (`.env`, `secrets/`,
-ключи), ни чужие данные (выгрузка Apple Health, дампы базы, собранные файлы),
-ни опознающие следы — почты, имена, живые замеры тела. В документах и тестах
-стоят условные значения.
-
-Проверку делает хук перед коммитом; он же доступен руками:
+The browser run expands a day, builds a plan, switches language and looks for
+missing translations, weak contrast, duplicate `id`s and horizontal scroll at
+360 px:
 
 ```bash
-pnpm scan        # весь репозиторий
-pnpm scan:test   # тесты самой проверки
-```
-
-Тесты:
-
-```bash
-pnpm test                                  # всё
-pnpm --filter @fatoff/api run test             # backend
-YAZIO_EMAIL=… YAZIO_PASSWORD=… \
-  pnpm --filter @fatoff/api run check:yazio    # живы ли эндпоинты YAZIO
-```
-
-Интеграционные тесты поднимают свои базы (`fatoff_test_*`) на том же
-PostgreSQL и подставной сервер YAZIO — сеть им не нужна.
-
-Интерфейс проверяется в браузере: прогон раскрывает день, собирает режим,
-переключает язык и ищет забытые переводы, слишком слабый контраст, повторяющиеся
-`id` и горизонтальную прокрутку на 390 px (D-045):
-
-```bash
-pnpm exec playwright install chromium          # один раз
+pnpm exec playwright install chromium          # once
 ACCOUNT=<uuid> SHOTS=/tmp/shots pnpm --filter @fatoff/web run check:ui
 ```
 
-Миграции генерируются из сущностей, руками SQL никто не пишет:
+README screenshots are taken from the demo account on a separate empty
+database — the development database is a copy of production, and real data
+would end up in the picture. The script refuses to run if the database holds
+any real account:
 
 ```bash
-pnpm --filter @fatoff/api run migration:create
-pnpm --filter @fatoff/api run migration:up
+docker exec fatoff-develop-postgresql psql -U fatoff -d postgres -c 'create database fatoff_shots'
+pnpm --filter @fatoff/web build
+cd apps/api && DB_NAME=fatoff_shots SCHEDULES_ENABLED=false node dist/main   # not via turbo: it drops DB_NAME
+BASE=http://localhost:4290 PASSWORD=… pnpm --filter @fatoff/web run screenshots
 ```
 
-## Apple Health
+## Documentation
 
-Выгрузка Apple Health — это файл на два гигабайта, через форму браузера такой не
-загрузить. Каталог с ней монтируется в контейнер только на чтение, а сервис
-показывает, что в нём лежит:
+The in-depth documents are in Russian:
 
-```bash
-# распакованную выгрузку положить сюда
-apple-health/apple_health_export/экспорт.xml
-```
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — architecture and screens
+- [docs/DECISIONS.md](docs/DECISIONS.md) — decision log: every non-obvious choice with its price
+- [docs/YAZIO-API.md](docs/YAZIO-API.md) — the reverse-engineered YAZIO API and its units
+- [docs/APPLE-HEALTH.md](docs/APPLE-HEALTH.md) — Apple Health format traps and merging
+- [docs/ANALYSIS-NUTRITION.md](docs/ANALYSIS-NUTRITION.md) — where the nutrition and training norms come from (WHO, ISSN, IOC RED-S, Mifflin–St Jeor)
+- [docs/PLANNER-ARCHITECTURE.md](docs/PLANNER-ARCHITECTURE.md) — the full day and the planner
+- [docs/GIT.md](docs/GIT.md) — branches, environments and what must never be committed
+- [docs/DRIVE-IMPORT.md](docs/DRIVE-IMPORT.md) — Apple Health import from Google Drive
 
-Дальше на странице аккаунта — «Apple Health» → выбрать файл → «Загрузить».
-Замерено на настоящей выгрузке: **4.4 миллиона записей, 95 типов, 8.6 лет — 21
-секунда**.
+The planner also explains itself inside the app, in both languages, on the
+*How it works* page.
 
-Что появляется после загрузки:
+## Privacy and security
 
-- вкладки «Здоровье», «Тренировки» и «Сон» в просмотре данных;
-- таблицы `health_daily`, `health_workouts`, `health_sleep` в выгрузке;
-- таблица **`daily_combined`** — день из обоих источников с балансом энергии;
-- раздел «Расход и баланс энергии» в Markdown-дайджесте.
-
-Три вещи, из-за которых наивный импорт Apple Health врёт, и что с ними сделано,
-разобраны в [docs/APPLE-HEALTH.md](docs/APPLE-HEALTH.md): дублирование данных
-между часами и телефоном, запись YAZIO в Health под видом второго источника и
-сон, пересекающий полночь.
-
-## Устройство
-
-```
-apps/api        NestJS 11, MikroORM 6, PostgreSQL 17 — выгрузка, хранение, сборка файлов
-apps/web        Nuxt 4 в режиме SPA, раздаётся самим backend
-packages/contracts   общие типы, реестр нутриентов и справочник полей
-apple-health    сюда кладётся выгрузка Apple Health (в репозиторий не попадает)
-infrastructure  docker-compose для PostgreSQL
-docs            архитектура, журнал решений, разбор API, Apple Health, нормы питания
-```
-
-Сырые ответы YAZIO хранятся в базе как есть, а таблицы выгрузки считаются из них
-при сборке файла. Поэтому изменение правил подсчёта не требует повторной
-выгрузки из YAZIO, а вся арифметика живёт в чистых функциях и покрыта тестами.
-
-Тем же принципом устроен генератор режима: нормы, оценка дня, пул продуктов,
-подбор меню и расстановка тренировок — чистые функции без базы и сети, сервис
-только достаёт для них строки.
-
-## Нормы и рекомендации
-
-Числа, на которых стоит генератор, взяты не с потолка: руководство ВОЗ 2020 по
-физической активности, позиционный доклад ISSN по белку, консенсус МОК по RED-S,
-формула Миффлина–Сан-Жеора, работы о распределении белка по приёмам пищи и о
-темпе снижения веса. Каждое расчётное число в интерфейсе подписано тем, откуда
-оно взялось; разбор — в [docs/ANALYSIS-NUTRITION.md](docs/ANALYSIS-NUTRITION.md).
-
-Это разбор данных по опубликованным рекомендациям, а не медицинское заключение.
-
-## Оговорки
-
-Сервис не даёт медицинских советов: он считает по опубликованным рекомендациям
-и показывает, откуда взялось каждое число. Решения принимает человек, при
-необходимости — вместе с врачом.
-
-API YAZIO не документировано и может измениться в любой момент — проект с YAZIO
-никак не связан. Версия пути (`v9`) вынесена в `YAZIO_API_VERSION`.
-
-### Аккаунт с входом через Apple ID
-
-Пароля у такого аккаунта не существует, а реализовать «Вход через Apple» на
-своей стороне нельзя — обменять токен Apple на токен YAZIO может только клиент,
-зарегистрированный у Apple. Но у YAZIO есть **веб-страница входа, где кнопка
-«Continue with Apple» работает**, и выданный там токен ничем не отличается от
-токена приложения.
-
-**Как добавить такой аккаунт — минута в браузере:**
-
-1. Открыть <https://www.yazio.com/en/app/account/login>, нажать `F12`, вкладка
-   «Сеть» (Network).
-2. Войти кнопкой «Continue with Apple».
-3. Найти запрос `POST /api/auth/token`, открыть вкладку «Ответ» (Response) и
-   скопировать тело целиком.
-4. В экспортёре: «Добавить» → «Готовый токен» → вставить в первое поле.
-   `access_token` и `refresh_token` разложатся сами.
-
-Проверено на живом аккаунте: токен, выданный сайтом, принимается
-`yzapi.yazio.com/v9`, и обновляется парой client_id приложения — то есть сервис
-умеет продлевать его сам, и повторно ничего доставать не придётся.
-
-**Запасной путь — перехват трафика телефона.** Нужен, только если веб-вход по
-какой-то причине не сработал. Приложение YAZIO не защищено от прослушки (вся
-спецификация API сообщества собрана перехватом), в проекте есть готовый
-перехватчик:
-
-```bash
-mitmdump -s apps/api/scripts/capture-token.py                    # только показать
-YZ_URL=http://localhost:4090 YZ_PASSWORD=<пароль> YZ_LABEL=второй \
-  mitmdump -s apps/api/scripts/capture-token.py                  # и завести аккаунт
-```
-
-На телефоне: прописать компьютер прокси-сервером (порт 8080), открыть
-`http://mitm.it`, поставить сертификат и включить его в «Настройки → Основные →
-Об этом устройстве → Доверие сертификатам». Затем в YAZIO выйти и зайти заново
-через Apple. Перехваченный трафик содержит токены и данные о здоровье — не
-хранить и никуда не выкладывать; после перехвата снять прокси на телефоне.
-
-Аккаунт без пароля живёт, пока YAZIO не отзовёт refresh-токен; после этого
-синхронизация упадёт с внятным сообщением, и токен нужно будет заменить на
-странице аккаунта.
-
-Пароль от YAZIO хранится в базе зашифрованным (AES-256-GCM), ключ — в `.env`,
-вне базы. Он нужен, чтобы ночная синхронизация продолжала работать после того,
-как YAZIO отзовёт токен. Выставлять сервис наружу не предполагается.
+- YAZIO passwords are stored encrypted (AES-256-GCM); the key lives in `.env`,
+  outside the database.
+- Real data never enters the repository: no `.env`, no exports, no database
+  dumps, no Apple Health files, no real body measurements. Figures in documents
+  and tests are illustrative.
+- The YAZIO app's own OAuth pair is not committed either; it comes from `.env`.

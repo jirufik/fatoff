@@ -117,9 +117,15 @@ describe('оценка дня', () => {
     // разряды разделены неразрывным пробелом — так их отдаёт toLocaleString
     expect(steps.note).toEqual({
       code: 'score.of',
-      params: { value: '9\u00a0500', target: '10\u00a0000', unit: '' },
+      params: { value: '9\u00a0500', target: '10\u00a0000' },
     });
     expect(steps.weight).toBe(15);
     expect(steps.earned).toBe(14.3);
+  });
+
+  it('единица уходит кодом сообщения, а не русским словом (D-044)', () => {
+    const protein = scoreDay(perfect()).parts.find((part) => part.key === 'protein')!;
+    expect(protein.note.code).toBe('score.of.g');
+    expect(JSON.stringify(protein.note.params)).not.toMatch(/[а-яё]/i);
   });
 });

@@ -20,26 +20,6 @@ import type {
   YazioWater,
 } from './yazio.types';
 
-/**
- * Пара OAuth самого приложения YAZIO — не пользовательский секрет: она одна на
- * все установки, и без неё password-grant не работает. Пара для v9 и пара для
- * v22 не взаимозаменяемы.
- */
-const CLIENT_CREDENTIALS: Record<string, { id: string; secret: string }> = {
-  v9: {
-    id: '<YAZIO_CLIENT_ID_V9>',
-    // scan-secrets: allow — пара самого приложения YAZIO: одна на все
-    // установки и извлекаемая из клиента, а не чей-то личный ключ
-    secret: '<YAZIO_CLIENT_SECRET_V9>',
-  },
-  default: {
-    id: '<YAZIO_CLIENT_ID_V22>',
-    // scan-secrets: allow — пара самого приложения YAZIO: одна на все
-    // установки и извлекаемая из клиента, а не чей-то личный ключ
-    secret: '<YAZIO_CLIENT_SECRET_V22>',
-  },
-};
-
 /** Виды замеров тела, которые имеет смысл спрашивать. Каждый — один запрос на период. */
 export const BODY_VALUE_KINDS = [
   'weight',
@@ -81,6 +61,12 @@ export interface YazioClientOptions {
   email: string;
   /** Может отсутствовать: у аккаунта через Apple ID пароля нет (D-017). */
   password?: string;
+  /**
+   * Пара OAuth самого приложения YAZIO: одна на все установки, но в репозитории
+   * её нет — приходит из окружения (D-086). Пара привязана к версии API: v9 и
+   * v22 не взаимозаменяемы.
+   */
+  client?: { id: string; secret: string };
   base?: string;
   version?: string;
   timeoutMs?: number;
@@ -151,7 +137,11 @@ export class YazioClient {
   }
 
   private get credentials(): { id: string; secret: string } {
-    return CLIENT_CREDENTIALS[this.version] ?? CLIENT_CREDENTIALS.default;
+    const client = this.options.client;
+    if (!client?.id || !client.secret) {
+      throw new YazioAuthError('Не задана пара приложения YAZIO: YAZIO_CLIENT_ID и YAZIO_CLIENT_SECRET в .env');
+    }
+    return client;
   }
 
   // ── авторизация ────────────────────────────────────────────────────────────

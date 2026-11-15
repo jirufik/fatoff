@@ -7,15 +7,17 @@ v9 не проверяет версию клиента в User-Agent (v22 отв
 ## Авторизация
 POST `/v9/oauth/token`, тело — JSON (форма тоже принимается):
 ```
-{"client_id":"<YAZIO_CLIENT_ID_V9>",
- "client_secret":"<YAZIO_CLIENT_SECRET_V9>",
+{"client_id":"<YAZIO_CLIENT_ID>",
+ "client_secret":"<YAZIO_CLIENT_SECRET>",
  "username":"...","password":"...","grant_type":"password"}
 ```
 Ответ: `{access_token, expires_in: 172800, refresh_token, token_type:"bearer"}` — 48 ч.
 Обновление: тот же путь, `grant_type=refresh_token`, `refresh_token=...`.
 Пара client_id/secret — не пользовательский секрет, она одна на все установки приложения.
-Для v22 пара другая: `<YAZIO_CLIENT_ID_V22>` /
-`<YAZIO_CLIENT_SECRET_V22>`.
+Для v22 пара другая: v9 и v22 не взаимозаменяемы. В репозитории пары нет — она
+приходит из `.env` (`YAZIO_CLIENT_ID`, `YAZIO_CLIENT_SECRET`, D-086). Достаётся
+она из трафика самого приложения — тем же прокси, что и `apps/api/scripts/capture-token.py`:
+пара едет открыто в теле запроса `/oauth/token`.
 Дальше — `Authorization: Bearer <access_token>`.
 
 ## Эндпоинты (все GET)

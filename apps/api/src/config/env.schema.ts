@@ -35,6 +35,13 @@ export const envSchema = z.object({
   // API YAZIO
   YAZIO_API_BASE: z.string().url().default('https://yzapi.yazio.com'),
   YAZIO_API_VERSION: z.string().min(2).default('v9'),
+  /**
+   * Пара OAuth самого приложения YAZIO для выбранной версии API (D-086). Не
+   * личный секрет, но в публичном репозитории ей не место: без неё сервис
+   * стартует, а вход в YAZIO отвечает понятной ошибкой.
+   */
+  YAZIO_CLIENT_ID: z.string().default(''),
+  YAZIO_CLIENT_SECRET: z.string().default(''),
   YAZIO_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(6),
   /** хвост дней, который перекачивается всегда: сегодняшний день ещё меняется */
   YAZIO_RESYNC_DAYS: z.coerce.number().int().min(0).max(90).default(3),
